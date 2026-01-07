@@ -29,12 +29,11 @@ local function fetchWhitelist()
     local response
     local success, err = pcall(function()
         if syn and syn.request then
-            local r = syn.request({
+            response = syn.request({
                 Url = API,
                 Method = "GET",
                 Headers = headers
-            })
-            response = r.Body
+            }).Body
         else
             response = game:HttpGet(API, true, headers)
         end
@@ -49,7 +48,7 @@ local function fetchWhitelist()
     return data
 end
 
--- ========== CHECK IF HWID EXISTS ==========
+-- ========== CHECK HWID FUNCTION ==========
 local function findKeyByHWID(data, hwid)
     for key, storedHWID in pairs(data) do
         if storedHWID == hwid then
@@ -71,10 +70,11 @@ local function showNotification(text)
     notifFrame.Position = UDim2.new(1, 260, 1, -70)
     notifFrame.AnchorPoint = Vector2.new(1, 1)
     notifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    notifFrame.BackgroundTransparency = 0.3 -- ทำให้โปร่ง
     notifFrame.Parent = notifGui
 
     local neonStroke = Instance.new("UIStroke")
-    neonStroke.Color = Color3.fromRGB(0, 200, 255) -- ฟ้านีออน
+    neonStroke.Color = Color3.fromRGB(0, 200, 255)
     neonStroke.Thickness = 3
     neonStroke.Parent = notifFrame
 
@@ -92,7 +92,6 @@ local function showNotification(text)
     notifText.TextSize = 18
     notifText.Parent = notifFrame
 
-    -- Tween เข้าออก
     local tweenIn = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Position = UDim2.new(1, -20, 1, -20)
     })
@@ -135,12 +134,16 @@ local function startSwiftHub()
     Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
     Frame.AnchorPoint = Vector2.new(0.5, 0.5)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Frame.BackgroundTransparency = 0.3 -- ทำให้โปร่ง
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
     Frame.Parent = ScreenGui
 
     local UIGradient = Instance.new("UIGradient")
-    UIGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,30)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0,50,150))}
+    UIGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,30)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,50,150))
+    }
     UIGradient.Rotation = 45
     UIGradient.Parent = Frame
 
@@ -165,6 +168,7 @@ local function startSwiftHub()
     TextBox.Text = ""
     TextBox.TextColor3 = Color3.fromRGB(255,255,255)
     TextBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    TextBox.BackgroundTransparency = 0.2 -- โปร่งนิดหน่อย
     TextBox.TextScaled = true
     TextBox.ClearTextOnFocus = false
     TextBox.Font = Enum.Font.SourceSans
@@ -217,14 +221,21 @@ local function startSwiftHub()
             return
         end
 
+        -- ถ้า Key ยังไม่มี HWID, bind กับ HWID ปัจจุบัน
         if data[userKey] == "" then
             data[userKey] = HWID
             local payload = HttpService:JSONEncode({files = {["whitelist.json"] = {content = HttpService:JSONEncode(data)}}})
             if syn and syn.request then
-                syn.request({Url="https://api.github.com/gists/"..GIST_ID, Method="PATCH", Headers={["Authorization"]="token "..TOKEN, ["User-Agent"]="Roblox"}, Body=payload})
+                syn.request({
+                    Url="https://api.github.com/gists/"..GIST_ID,
+                    Method="PATCH",
+                    Headers={["Authorization"]="token "..TOKEN, ["User-Agent"]="Roblox"},
+                    Body=payload
+                })
             end
         end
 
+        -- ตรวจสอบ HWID อีกครั้ง
         if data[userKey] ~= HWID then
             LocalPlayer:Kick("HWID Mismatch - Key already used")
             return
