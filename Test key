@@ -1,136 +1,240 @@
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+-- ========== CONFIG ==========
+local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
+local TOKEN = "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"
+
+-- ========== SERVICES ==========
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
-local Analytics = game:GetService("RbxAnalyticsService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- CONFIG
-local RAW_URL = "https://gist.githubusercontent.com/boomrshgsh-source/06a3e054df764e01ec58feb6889b87f9/raw/e820330e03e9c02918a3cc27e9969becac8615b5/whitelist.json"
-local SCRIPT_URL = "https://raw.githubusercontent.com/reothebest13-art/ERRORHUB.lua/refs/heads/main/ERRORHUB%20ALLMap"
-
--- --- Utility ---
+-- ========== HWID FUNCTION ==========
 local function getHWID()
     local success, hwid = pcall(function()
-        return Analytics:GetClientId()
+        return game:GetService("RbxAnalyticsService"):GetClientId()
     end)
-    return success and hwid or "HWID_"..tostring(math.random(100000,999999))
+    return success and hwid or "HWID_" .. tostring(math.random(100000,999999))
 end
 local HWID = getHWID()
+print("HWID:", HWID)
 
--- --- สร้าง UI ---
-local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 400, 0, 200)
-Frame.Position = UDim2.new(0.5, -200, 0.5, -100)
-Frame.BackgroundColor3 = Color3.fromRGB(10,10,30)
-Frame.BorderSizePixel = 0
-local UICorner = Instance.new("UICorner", Frame)
-UICorner.CornerRadius = UDim.new(0,20)
-
-local Title = Instance.new("TextLabel", Frame)
-Title.Size = UDim2.new(1,0,0,50)
-Title.Position = UDim2.new(0,0,0,0)
-Title.BackgroundTransparency = 1
-Title.Text = "Swift HUB"
-Title.TextScaled = true
-Title.TextColor3 = Color3.fromRGB(0,170,255)
-
-local KeyBox = Instance.new("TextBox", Frame)
-KeyBox.Size = UDim2.new(0.8,0,0,40)
-KeyBox.Position = UDim2.new(0.1,0,0.5,-20)
-KeyBox.PlaceholderText = "Enter your SWIFKEY-XXXX-XXXX"
-KeyBox.TextScaled = true
-KeyBox.BackgroundColor3 = Color3.fromRGB(20,20,50)
-KeyBox.TextColor3 = Color3.fromRGB(255,255,255)
-local KeyCorner = Instance.new("UICorner", KeyBox)
-KeyCorner.CornerRadius = UDim.new(0,10)
-
-local Submit = Instance.new("TextButton", Frame)
-Submit.Size = UDim2.new(0.5,0,0,40)
-Submit.Position = UDim2.new(0.25,0,0.75,0)
-Submit.Text = "Submit"
-Submit.BackgroundColor3 = Color3.fromRGB(0,170,255)
-local BtnCorner = Instance.new("UICorner", Submit)
-BtnCorner.CornerRadius = UDim.new(0,10)
-
--- Notification
-local Notification = Instance.new("TextLabel", ScreenGui)
-Notification.Size = UDim2.new(0,300,0,50)
-Notification.Position = UDim2.new(1,-310,1,-60)
-Notification.BackgroundColor3 = Color3.fromRGB(0,0,0)
-Notification.TextColor3 = Color3.fromRGB(0,255,255)
-Notification.TextScaled = true
-Notification.Text = ""
-local NotiCorner = Instance.new("UICorner", Notification)
-NotiCorner.CornerRadius = UDim.new(0,10)
-
-local function ShowNotification(msg)
-    Notification.Text = msg
-    TweenService:Create(Notification,TweenInfo.new(0.5),{TextTransparency=0}):Play()
-    task.delay(3,function()
-        TweenService:Create(Notification,TweenInfo.new(0.5),{TextTransparency=1}):Play()
-    end)
-end
-
--- --- ตรวจ Key + HWID + Expire ---
-local function CheckKey(key)
-    local success, response = pcall(function()
-        return game:HttpGet(RAW_URL)
+-- ========== GIST FETCH FUNCTION ==========
+local function fetchWhitelist()
+    local API = "https://api.github.com/gists/" .. GIST_ID
+    local headers = {
+        ["Authorization"] = "token " .. TOKEN,
+        ["User-Agent"] = "Roblox"
+    }
+    local response
+    local success, err = pcall(function()
+        if syn and syn.request then
+            local r = syn.request({
+                Url = API,
+                Method = "GET",
+                Headers = headers
+            })
+            response = r.Body
+        else
+            response = game:HttpGet(API, true, headers)
+        end
     end)
     if not success then
-        ShowNotification("❌ Cannot fetch whitelist")
-        return false
+        LocalPlayer:Kick("Cannot connect to whitelist")
+        return nil
     end
 
-    local data = HttpService:JSONDecode(response)
-    local info = data[key]
-    if not info then
-        ShowNotification("❌ Invalid Key")
-        return false
-    end
-
-    -- ตรวจวันหมดอายุ
-    if info.expires and info.expires ~= "" then
-        local y,m,d,h,min = string.match(info.expires,"(%d+)-(%d+)-(%d+)T(%d+):(%d+)")
-        local expTime = os.time({year=tonumber(y), month=tonumber(m), day=tonumber(d), hour=tonumber(h), min=tonumber(min)})
-        if os.time() > expTime then
-            ShowNotification("❌ Key Expired")
-            return false
-        end
-    end
-
-    -- ตรวจ HWID
-    if info.HWID and info.HWID ~= "" then
-        if info.HWID ~= HWID then
-            ShowNotification("❌ HWID Mismatch")
-            return false
-        end
-    else
-        -- ผูก HWID อัตโนมัติ
-        info.HWID = HWID
-        data[key] = info
-        -- อัปเดตกลับ Gist
-        local payload = HttpService:JSONEncode({files={["whitelist.json"]={content=HttpService:JSONEncode(data)}}})
-        if syn and syn.request then
-            syn.request({
-                Url = "https://api.github.com/gists/06a3e054df764e01ec58feb6889b87f9", -- เปลี่ยนเป็น Gist ID ของคุณ
-                Method = "PATCH",
-                Headers = {["Authorization"]="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", ["User-Agent"]="Roblox"},
-                Body = payload
-            })
-        end
-        ShowNotification("✅ HWID Bound")
-    end
-
-    ShowNotification("✅ Swift HUB Whitelist")
-    return true
+    local gist = HttpService:JSONDecode(response)
+    local data = HttpService:JSONDecode(gist.files["whitelist.json"].content)
+    return data
 end
 
--- --- Submit Event ---
-Submit.MouseButton1Click:Connect(function()
-    local key = KeyBox.Text
-    if CheckKey(key) then
-        loadstring(game:HttpGet(SCRIPT_URL))()
-        Frame:Destroy()
+-- ========== CHECK IF HWID EXISTS ==========
+local function findKeyByHWID(data, hwid)
+    for key, storedHWID in pairs(data) do
+        if storedHWID == hwid then
+            return key
+        end
     end
-end)
+    return nil
+end
+
+-- ========== NOTIFICATION FUNCTION ==========
+local function showNotification(text)
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "SwiftHubNotification"
+    notifGui.Parent = PlayerGui
+    notifGui.ResetOnSpawn = false
+
+    local notifFrame = Instance.new("Frame")
+    notifFrame.Size = UDim2.new(0, 250, 0, 50)
+    notifFrame.Position = UDim2.new(1, 260, 1, -70)
+    notifFrame.AnchorPoint = Vector2.new(1, 1)
+    notifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    notifFrame.Parent = notifGui
+
+    local neonStroke = Instance.new("UIStroke")
+    neonStroke.Color = Color3.fromRGB(0, 200, 255) -- ฟ้านีออน
+    neonStroke.Thickness = 3
+    neonStroke.Parent = notifFrame
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.Parent = notifFrame
+
+    local notifText = Instance.new("TextLabel")
+    notifText.Size = UDim2.new(1, -20, 1, 0)
+    notifText.Position = UDim2.new(0, 10, 0, 0)
+    notifText.Text = text
+    notifText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    notifText.BackgroundTransparency = 1
+    notifText.Font = Enum.Font.SourceSansBold
+    notifText.TextSize = 18
+    notifText.Parent = notifFrame
+
+    -- Tween เข้าออก
+    local tweenIn = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -20, 1, -20)
+    })
+    tweenIn:Play()
+    tweenIn.Completed:Connect(function()
+        wait(2)
+        local tweenOut = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 260, 1, -70)
+        })
+        tweenOut:Play()
+        tweenOut.Completed:Connect(function()
+            notifGui:Destroy()
+        end)
+    end)
+end
+
+-- ========== START SWIFT HUB FUNCTION ==========
+local function startSwiftHub()
+    local data = fetchWhitelist()
+    if not data then return end
+
+    -- ตรวจสอบ HWID ก่อน
+    local key = findKeyByHWID(data, HWID)
+    if key then
+        print("✅ Found existing HWID! Using Key:", key)
+        showNotification("Swift HUB Whitelist ✅")
+        -- โหลดสคริปต์
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/reothebest13-art/ERRORHUB.lua/refs/heads/main/ERRORHUB%20ALLMap"))()
+        return
+    end
+
+    -- ถ้า HWID ไม่ตรงใคร แสดง UI ให้ใส่ Key
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "SwiftHubKeyUI"
+    ScreenGui.Parent = PlayerGui
+    ScreenGui.ResetOnSpawn = false
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 380, 0, 220)
+    Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Frame.BorderSizePixel = 0
+    Frame.ClipsDescendants = true
+    Frame.Parent = ScreenGui
+
+    local UIGradient = Instance.new("UIGradient")
+    UIGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,30)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0,50,150))}
+    UIGradient.Rotation = 45
+    UIGradient.Parent = Frame
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 20)
+    UICorner.Parent = Frame
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 50)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.Text = "Swift HUB"
+    Title.TextColor3 = Color3.fromRGB(0, 200, 255)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 26
+    Title.Parent = Frame
+
+    local TextBox = Instance.new("TextBox")
+    TextBox.Size = UDim2.new(0.8, 0, 0, 50)
+    TextBox.Position = UDim2.new(0.1, 0, 0, 80)
+    TextBox.PlaceholderText = "Enter your Key..."
+    TextBox.Text = ""
+    TextBox.TextColor3 = Color3.fromRGB(255,255,255)
+    TextBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    TextBox.TextScaled = true
+    TextBox.ClearTextOnFocus = false
+    TextBox.Font = Enum.Font.SourceSans
+    TextBox.Parent = Frame
+
+    local tbCorner = Instance.new("UICorner")
+    tbCorner.CornerRadius = UDim.new(0, 12)
+    tbCorner.Parent = TextBox
+
+    TextBox.Focused:Connect(function()
+        TweenService:Create(TextBox, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(50,50,80)}):Play()
+    end)
+    TextBox.FocusLost:Connect(function()
+        TweenService:Create(TextBox, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(30,30,40)}):Play()
+    end)
+
+    local SubmitButton = Instance.new("TextButton")
+    SubmitButton.Size = UDim2.new(0.5, 0, 0, 40)
+    SubmitButton.Position = UDim2.new(0.25, 0, 0, 150)
+    SubmitButton.Text = "Submit"
+    SubmitButton.TextColor3 = Color3.fromRGB(255,255,255)
+    SubmitButton.BackgroundColor3 = Color3.fromRGB(0,100,200)
+    SubmitButton.Font = Enum.Font.SourceSansBold
+    SubmitButton.TextSize = 20
+    SubmitButton.Parent = Frame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 12)
+    btnCorner.Parent = SubmitButton
+
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(0,200,255)
+    UIStroke.Thickness = 2
+    UIStroke.Parent = SubmitButton
+
+    SubmitButton.MouseEnter:Connect(function()
+        TweenService:Create(SubmitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0,150,255)}):Play()
+    end)
+    SubmitButton.MouseLeave:Connect(function()
+        TweenService:Create(SubmitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0,100,200)}):Play()
+    end)
+    SubmitButton.MouseButton1Click:Connect(function()
+        TweenService:Create(SubmitButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0,50,150)}):Play()
+        wait(0.1)
+        TweenService:Create(SubmitButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0,100,200)}):Play()
+
+        local userKey = TextBox.Text
+        if data[userKey] == nil then
+            LocalPlayer:Kick("Invalid Key")
+            return
+        end
+
+        if data[userKey] == "" then
+            data[userKey] = HWID
+            local payload = HttpService:JSONEncode({files = {["whitelist.json"] = {content = HttpService:JSONEncode(data)}}})
+            if syn and syn.request then
+                syn.request({Url="https://api.github.com/gists/"..GIST_ID, Method="PATCH", Headers={["Authorization"]="token "..TOKEN, ["User-Agent"]="Roblox"}, Body=payload})
+            end
+        end
+
+        if data[userKey] ~= HWID then
+            LocalPlayer:Kick("HWID Mismatch - Key already used")
+            return
+        end
+
+        showNotification("Swift HUB Whitelist ✅")
+        ScreenGui:Destroy()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/reothebest13-art/ERRORHUB.lua/refs/heads/main/ERRORHUB%20ALLMap"))()
+    end)
+end
+
+-- เริ่มระบบ
+startSwiftHub()
