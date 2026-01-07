@@ -1,0 +1,128 @@
+-- ========== CONFIG ==========
+_G.Key = ""
+local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
+local TOKEN = "ERROR-Q9X4MZ7PL3AK-K27QX9"
+
+-- ========== SYSTEM ==========
+local HttpService = game:GetService("HttpService")
+
+-- ดึง HWID
+local function getHWID()
+    local success, hwid = pcall(function()
+        return game:GetService("RbxAnalyticsService"):GetClientId()
+    end)
+    return success and hwid or "HWID_" .. tostring(math.random(100000,999999))
+end
+
+local HWID = getHWID()
+print("HWID:", HWID)
+
+-- ========== CHECK WHITELIST ==========
+local API = "https://api.github.com/gists/" .. GIST_ID
+local headers = {
+    ["Authorization"] = "token " .. TOKEN, 
+    ["User-Agent"] = "Roblox"
+}
+
+-- ใช้ game:HttpGet แทน game:HttpRequest
+local function makeRequest(url, method, body)
+    if method == "GET" then
+        return game:HttpGet(url, true, headers)
+    else
+        -- สำหรับ PATCH/POST ใช้ syn.request (ถ้าใช้ Executor)
+        if syn and syn.request then
+            local response = syn.request({
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body
+            })
+            return response.Body
+        else
+            -- Fallback สำหรับ Roblox ธรรมดา
+            warn("Cannot make " .. method .. " request in this environment")
+            return nil
+        end
+    end
+end
+
+-- ดึงข้อมูล
+local success, response = pcall(function()
+    return makeRequest(API, "GET")
+end)
+
+if not success or not response then
+    game.Players.LocalPlayer:Kick("Server error - Cannot connect")
+    return
+end
+
+local gist = HttpService:JSONDecode(response)
+local data = HttpService:JSONDecode(gist.files["whitelist.json"].content)
+
+-- Check Key
+if data[_G.Key] == nil then
+    game.Players.LocalPlayer:Kick("Invalid Key")
+    return
+end
+
+print("📝 Current HWID in system:", data[_G.Key])
+
+-- Auto Update HWID if empty
+if data[_G.Key] == "" then
+    print("📝 Registering new HWID...")
+    data[_G.Key] = HWID
+    
+    -- Update to GitHub (ใช้วิธีที่ compatible)
+    local payload = HttpService:JSONEncode({
+        files = {
+            ["whitelist.json"] = {
+                content = HttpService:JSONEncode(data)
+            }
+        }
+    })
+    
+    -- ลองหลายวิธี
+    local updateSuccess = false
+    
+    -- วิธีที่ 1: ใช้ syn.request
+    if syn and syn.request then
+        local updateResponse = syn.request({
+            Url = API,
+            Method = "PATCH",
+            Headers = headers,
+            Body = payload
+        })
+        if updateResponse.Success then
+            updateSuccess = true
+            print("✅ Updated via syn.request")
+        end
+    end
+    
+    -- วิธีที่ 2: ใช้ request library อื่น
+    if not updateSuccess and request then
+        local updateResponse = request({
+            Url = API,
+            Method = "PATCH",
+            Headers = headers,
+            Body = payload
+        })
+        if updateResponse.Success then
+            updateSuccess = true
+            print("✅ Updated via request")
+        end
+    end
+    
+    if not updateSuccess then
+        print("⚠️ Warning: Could not update HWID to GitHub (Read-only mode)")
+        -- แต่ยังให้ผ่านได้เพราะ HWID ว่าง
+    end
+end
+
+-- Verify HWID
+if data[_G.Key] ~= HWID then
+    game.Players.LocalPlayer:Kick("HWID Mismatch - Key already used")
+    return
+end
+
+print("✅ Access Granted!")
+print("You can now use the script!")
