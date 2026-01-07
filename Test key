@@ -1,128 +1,136 @@
--- ========== CONFIG ==========
-_G.Key = ""
-local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
-local TOKEN = "ERROR-Q9X4MZ7PL3AK-K27QX9"
-
--- ========== SYSTEM ==========
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local Analytics = game:GetService("RbxAnalyticsService")
 
--- ดึง HWID
+-- CONFIG
+local RAW_URL = "https://gist.githubusercontent.com/boomrshgsh-source/06a3e054df764e01ec58feb6889b87f9/raw/e820330e03e9c02918a3cc27e9969becac8615b5/whitelist.json"
+local SCRIPT_URL = "https://raw.githubusercontent.com/reothebest13-art/ERRORHUB.lua/refs/heads/main/ERRORHUB%20ALLMap"
+
+-- --- Utility ---
 local function getHWID()
     local success, hwid = pcall(function()
-        return game:GetService("RbxAnalyticsService"):GetClientId()
+        return Analytics:GetClientId()
     end)
-    return success and hwid or "HWID_" .. tostring(math.random(100000,999999))
+    return success and hwid or "HWID_"..tostring(math.random(100000,999999))
 end
-
 local HWID = getHWID()
-print("HWID:", HWID)
 
--- ========== CHECK WHITELIST ==========
-local API = "https://api.github.com/gists/" .. GIST_ID
-local headers = {
-    ["Authorization"] = "token " .. TOKEN, 
-    ["User-Agent"] = "Roblox"
-}
+-- --- สร้าง UI ---
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 400, 0, 200)
+Frame.Position = UDim2.new(0.5, -200, 0.5, -100)
+Frame.BackgroundColor3 = Color3.fromRGB(10,10,30)
+Frame.BorderSizePixel = 0
+local UICorner = Instance.new("UICorner", Frame)
+UICorner.CornerRadius = UDim.new(0,20)
 
--- ใช้ game:HttpGet แทน game:HttpRequest
-local function makeRequest(url, method, body)
-    if method == "GET" then
-        return game:HttpGet(url, true, headers)
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1,0,0,50)
+Title.Position = UDim2.new(0,0,0,0)
+Title.BackgroundTransparency = 1
+Title.Text = "Swift HUB"
+Title.TextScaled = true
+Title.TextColor3 = Color3.fromRGB(0,170,255)
+
+local KeyBox = Instance.new("TextBox", Frame)
+KeyBox.Size = UDim2.new(0.8,0,0,40)
+KeyBox.Position = UDim2.new(0.1,0,0.5,-20)
+KeyBox.PlaceholderText = "Enter your SWIFKEY-XXXX-XXXX"
+KeyBox.TextScaled = true
+KeyBox.BackgroundColor3 = Color3.fromRGB(20,20,50)
+KeyBox.TextColor3 = Color3.fromRGB(255,255,255)
+local KeyCorner = Instance.new("UICorner", KeyBox)
+KeyCorner.CornerRadius = UDim.new(0,10)
+
+local Submit = Instance.new("TextButton", Frame)
+Submit.Size = UDim2.new(0.5,0,0,40)
+Submit.Position = UDim2.new(0.25,0,0.75,0)
+Submit.Text = "Submit"
+Submit.BackgroundColor3 = Color3.fromRGB(0,170,255)
+local BtnCorner = Instance.new("UICorner", Submit)
+BtnCorner.CornerRadius = UDim.new(0,10)
+
+-- Notification
+local Notification = Instance.new("TextLabel", ScreenGui)
+Notification.Size = UDim2.new(0,300,0,50)
+Notification.Position = UDim2.new(1,-310,1,-60)
+Notification.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Notification.TextColor3 = Color3.fromRGB(0,255,255)
+Notification.TextScaled = true
+Notification.Text = ""
+local NotiCorner = Instance.new("UICorner", Notification)
+NotiCorner.CornerRadius = UDim.new(0,10)
+
+local function ShowNotification(msg)
+    Notification.Text = msg
+    TweenService:Create(Notification,TweenInfo.new(0.5),{TextTransparency=0}):Play()
+    task.delay(3,function()
+        TweenService:Create(Notification,TweenInfo.new(0.5),{TextTransparency=1}):Play()
+    end)
+end
+
+-- --- ตรวจ Key + HWID + Expire ---
+local function CheckKey(key)
+    local success, response = pcall(function()
+        return game:HttpGet(RAW_URL)
+    end)
+    if not success then
+        ShowNotification("❌ Cannot fetch whitelist")
+        return false
+    end
+
+    local data = HttpService:JSONDecode(response)
+    local info = data[key]
+    if not info then
+        ShowNotification("❌ Invalid Key")
+        return false
+    end
+
+    -- ตรวจวันหมดอายุ
+    if info.expires and info.expires ~= "" then
+        local y,m,d,h,min = string.match(info.expires,"(%d+)-(%d+)-(%d+)T(%d+):(%d+)")
+        local expTime = os.time({year=tonumber(y), month=tonumber(m), day=tonumber(d), hour=tonumber(h), min=tonumber(min)})
+        if os.time() > expTime then
+            ShowNotification("❌ Key Expired")
+            return false
+        end
+    end
+
+    -- ตรวจ HWID
+    if info.HWID and info.HWID ~= "" then
+        if info.HWID ~= HWID then
+            ShowNotification("❌ HWID Mismatch")
+            return false
+        end
     else
-        -- สำหรับ PATCH/POST ใช้ syn.request (ถ้าใช้ Executor)
+        -- ผูก HWID อัตโนมัติ
+        info.HWID = HWID
+        data[key] = info
+        -- อัปเดตกลับ Gist
+        local payload = HttpService:JSONEncode({files={["whitelist.json"]={content=HttpService:JSONEncode(data)}}})
         if syn and syn.request then
-            local response = syn.request({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body
+            syn.request({
+                Url = "https://api.github.com/gists/06a3e054df764e01ec58feb6889b87f9", -- เปลี่ยนเป็น Gist ID ของคุณ
+                Method = "PATCH",
+                Headers = {["Authorization"]="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", ["User-Agent"]="Roblox"},
+                Body = payload
             })
-            return response.Body
-        else
-            -- Fallback สำหรับ Roblox ธรรมดา
-            warn("Cannot make " .. method .. " request in this environment")
-            return nil
         end
+        ShowNotification("✅ HWID Bound")
     end
+
+    ShowNotification("✅ Swift HUB Whitelist")
+    return true
 end
 
--- ดึงข้อมูล
-local success, response = pcall(function()
-    return makeRequest(API, "GET")
+-- --- Submit Event ---
+Submit.MouseButton1Click:Connect(function()
+    local key = KeyBox.Text
+    if CheckKey(key) then
+        loadstring(game:HttpGet(SCRIPT_URL))()
+        Frame:Destroy()
+    end
 end)
-
-if not success or not response then
-    game.Players.LocalPlayer:Kick("Server error - Cannot connect")
-    return
-end
-
-local gist = HttpService:JSONDecode(response)
-local data = HttpService:JSONDecode(gist.files["whitelist.json"].content)
-
--- Check Key
-if data[_G.Key] == nil then
-    game.Players.LocalPlayer:Kick("Invalid Key")
-    return
-end
-
-print("📝 Current HWID in system:", data[_G.Key])
-
--- Auto Update HWID if empty
-if data[_G.Key] == "" then
-    print("📝 Registering new HWID...")
-    data[_G.Key] = HWID
-    
-    -- Update to GitHub (ใช้วิธีที่ compatible)
-    local payload = HttpService:JSONEncode({
-        files = {
-            ["whitelist.json"] = {
-                content = HttpService:JSONEncode(data)
-            }
-        }
-    })
-    
-    -- ลองหลายวิธี
-    local updateSuccess = false
-    
-    -- วิธีที่ 1: ใช้ syn.request
-    if syn and syn.request then
-        local updateResponse = syn.request({
-            Url = API,
-            Method = "PATCH",
-            Headers = headers,
-            Body = payload
-        })
-        if updateResponse.Success then
-            updateSuccess = true
-            print("✅ Updated via syn.request")
-        end
-    end
-    
-    -- วิธีที่ 2: ใช้ request library อื่น
-    if not updateSuccess and request then
-        local updateResponse = request({
-            Url = API,
-            Method = "PATCH",
-            Headers = headers,
-            Body = payload
-        })
-        if updateResponse.Success then
-            updateSuccess = true
-            print("✅ Updated via request")
-        end
-    end
-    
-    if not updateSuccess then
-        print("⚠️ Warning: Could not update HWID to GitHub (Read-only mode)")
-        -- แต่ยังให้ผ่านได้เพราะ HWID ว่าง
-    end
-end
-
--- Verify HWID
-if data[_G.Key] ~= HWID then
-    game.Players.LocalPlayer:Kick("HWID Mismatch - Key already used")
-    return
-end
-
-print("✅ Access Granted!")
-print("You can now use the script!")
