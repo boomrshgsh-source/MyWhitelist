@@ -1,220 +1,252 @@
--- ================= SWIFT HUB CONFIG =================
+-- ========== CONFIG ==========
 local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
 local TOKEN = "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"
-local HUB_SCRIPT_URL = "https://pastebin.com/raw/u8dTmTes" -- ใส่ลิงก์สคริปต์จริง
+local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
 
--- ================= SERVICES =================
+-- ========== SERVICES ==========
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local HttpService = game:GetService("HttpService")
-local TweenService = game:GetService("TweenService")
 
--- ================= THEME =================
-local THEME_COLOR_1 = Color3.fromRGB(0,255,200)
-local THEME_COLOR_2 = Color3.fromRGB(0,180,255)
+-- ========== THEME ==========
+local THEME_COLOR_1 = Color3.fromRGB(0,255,150)
+local THEME_COLOR_2 = Color3.fromRGB(0,200,255)
 local BG_COLOR = Color3.fromRGB(12,12,12)
 
--- ================= HWID =================
-local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
-
--- ================= SWIFT HUB SECURITY CORE =================
-do
-    -- Disable HttpGet / namecall bypass
-    local rawmt = getrawmetatable(game)
-    setreadonly(rawmt,false)
-
-    local oldNamecall = rawmt.__namecall
-    rawmt.__namecall = newcclosure(function(self,...)
-        local method = getnamecallmethod()
-        if tostring(method) == "HttpGet" or tostring(method) == "HttpPost" then
-            Players.LocalPlayer:Kick("HttpGet Blocked")
-            return
-        end
-        return oldNamecall(self,...)
-    end)
-
-    setreadonly(rawmt,true)
-
-    -- Capture real HTTP engine
-    local RAW_REQUEST =
-        (syn and syn.request)
-        or http_request
-        or request
-        or (fluxus and fluxus.request)
-
-    if not RAW_REQUEST then
-        Players.LocalPlayer:Kick("Executor not supported")
-        return
-    end
-
-    local SAFE_REQUEST = RAW_REQUEST
-
-    -- Secure HTTP wrapper
-    local function safeRequest(opt)
-        if SAFE_REQUEST ~= RAW_REQUEST then
-            Players.LocalPlayer:Kick("HTTP Hook Detected")
-            return
-        end
-        if type(opt) ~= "table" or not opt.Url then
-            Players.LocalPlayer:Kick("Invalid HTTP Call")
-            return
-        end
-        opt.Headers = opt.Headers or {}
-        opt.Headers["X-Swift-Security"] = "SwiftHub-Protected"
-        return SAFE_REQUEST(opt)
-    end
-
-    -- Background watchdog
-    task.spawn(function()
-        while task.wait(1.5) do
-            if SAFE_REQUEST ~= RAW_REQUEST then
-                Players.LocalPlayer:Kick("Security Violation")
-                break
-            end
-        end
-    end)
-
-    -- Public API
-    httpRequest = safeRequest
+-- ========== HTTP ==========
+local function httpRequest(o)
+    local r = syn and syn.request or request or http_request or (fluxus and fluxus.request)
+    return r(o)
 end
 
--- ================= WHITELIST FUNCTIONS =================
+-- ========== WHITELIST ==========
 local function fetchWhitelist()
-    local h = {["Authorization"]="token "..TOKEN, ["User-Agent"]="Roblox"}
-    local r = httpRequest({Url="https://api.github.com/gists/"..GIST_ID, Method="GET", Headers=h})
-    if r and r.StatusCode == 200 then
+    local h = {["Authorization"]="token "..TOKEN,["User-Agent"]="Roblox"}
+    local r = httpRequest({Url="https://api.github.com/gists/"..GIST_ID,Method="GET",Headers=h})
+    if r and r.StatusCode==200 then
         local g = HttpService:JSONDecode(r.Body)
         return HttpService:JSONDecode(g.files["whitelist.json"].content)
     end
+    return {}
 end
 
 local function updateWhitelist(data)
-    local h = {["Authorization"]="token "..TOKEN, ["Content-Type"]="application/json"}
-    local success, res = pcall(function()
-        return httpRequest({
-            Url="https://api.github.com/gists/"..GIST_ID,
-            Method="PATCH",
-            Headers=h,
-            Body=HttpService:JSONEncode({files={["whitelist.json"]={content=HttpService:JSONEncode(data)}}})
-        })
-    end)
-    if success and res and res.StatusCode==200 then
-        return true
-    else
-        warn("Failed to update whitelist!", res)
-        return false
-    end
+    local h = {["Authorization"]="token "..TOKEN,["Content-Type"]="application/json"}
+    return httpRequest({
+        Url="https://api.github.com/gists/"..GIST_ID,
+        Method="PATCH",
+        Headers=h,
+        Body=HttpService:JSONEncode({files={["whitelist.json"]={content=HttpService:JSONEncode(data)}}})
+    })
 end
 
--- ================= NEON NOTIFY =================
+-- ========== NOTIFICATION ==========
 local function showNotification(txt)
-    local gui=Instance.new("ScreenGui",PlayerGui)
-    local f=Instance.new("Frame",gui)
-    f.Size=UDim2.new(0,300,0,65)
-    f.Position=UDim2.new(1,320,1,-60)
-    f.AnchorPoint=Vector2.new(1,1)
-    f.BackgroundColor3=BG_COLOR
-    Instance.new("UICorner",f).CornerRadius=UDim.new(0,14)
+    local gui = Instance.new("ScreenGui", PlayerGui)
+    local f = Instance.new("Frame", gui)
+    f.Size = UDim2.new(0,300,0,65)
+    f.Position = UDim2.new(1,320,1,-60)
+    f.AnchorPoint = Vector2.new(1,1)
+    f.BackgroundColor3 = BG_COLOR
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0,14)
 
-    local s=Instance.new("UIStroke",f)
-    local g=Instance.new("UIGradient",s)
-    g.Color=ColorSequence.new(THEME_COLOR_1,THEME_COLOR_2)
+    local s = Instance.new("UIStroke", f)  
+    local g = Instance.new("UIGradient", s)  
+    g.Color = ColorSequence.new(THEME_COLOR_1, THEME_COLOR_2)  
 
-    local glow=Instance.new("UIStroke",f)
-    glow.Thickness=10
-    glow.Transparency=0.75
-    local gg=Instance.new("UIGradient",glow)
-    gg.Color=g.Color
+    local glow = Instance.new("UIStroke", f)  
+    glow.Thickness = 10  
+    glow.Transparency = 0.75  
+    local gg = Instance.new("UIGradient", glow)  
+    gg.Color = g.Color  
 
-    local t=Instance.new("TextLabel",f)
-    t.Size=UDim2.new(1,-16,1,-16)
-    t.Position=UDim2.new(0,8,0,8)
-    t.BackgroundTransparency=1
-    t.Text=txt
-    t.TextColor3=Color3.new(1,1,1)
-    t.Font=Enum.Font.GothamBold
-    t.TextSize=15
+    local t = Instance.new("TextLabel", f)  
+    t.Size = UDim2.new(1,-16,1,-16)  
+    t.Position = UDim2.new(0,8,0,8)  
+    t.BackgroundTransparency = 1  
+    t.Text = txt  
+    t.TextColor3 = Color3.new(1,1,1)  
+    t.Font = Enum.Font.GothamBold  
+    t.TextSize = 15  
 
-    TweenService:Create(f,TweenInfo.new(.6),{Position=UDim2.new(1,-20,1,-60)}):Play()
-    task.wait(3)
-    TweenService:Create(f,TweenInfo.new(.6),{Position=UDim2.new(1,320,1,-60)}):Play()
-    task.delay(.7,function() gui:Destroy() end)
+    TweenService:Create(f, TweenInfo.new(.6), {Position = UDim2.new(1,-20,1,-60)}):Play()  
+    task.wait(3)  
+    TweenService:Create(f, TweenInfo.new(.6), {Position = UDim2.new(1,320,1,-60)}):Play()  
+    task.delay(.7, function() gui:Destroy() end)
 end
 
--- ================= MAIN UI =================
-local function startSwiftHub()
-    local data = fetchWhitelist()
-    if not data then return end
+-- ========== MAIN UI ==========
+local function createKeyInputUI()
+    local gui = Instance.new("ScreenGui", PlayerGui)
+    gui.Name = "SwiftHubAuth"
+    
+    local mainFrame = Instance.new("Frame", gui)  
+    mainFrame.Size = UDim2.new(0, 400, 0, 240)  
+    mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)  
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)  
+    mainFrame.BackgroundColor3 = BG_COLOR  
+    mainFrame.Name = "AuthFrame"
+    
+    local corner = Instance.new("UICorner", mainFrame)
+    corner.CornerRadius = UDim.new(0, 16)
 
-    -- HWID already in whitelist
-    for k,v in pairs(data) do
-        if v==HWID then
-            showNotification("Access Granted")
-            loadstring(game:HttpGet(HUB_SCRIPT_URL))()
-            return
-        end
-    end
+    -- Neon Border  
+    local border = Instance.new("UIStroke", mainFrame)  
+    border.Thickness = 3
+    local borderGradient = Instance.new("UIGradient", border)  
+    borderGradient.Color = ColorSequence.new(THEME_COLOR_1, THEME_COLOR_2)  
 
-    -- Create key input UI
-    local gui=Instance.new("ScreenGui",PlayerGui)
-    local f=Instance.new("Frame",gui)
-    f.Size=UDim2.new(0,400,0,240)
-    f.Position=UDim2.new(.5,0,.5,0)
-    f.AnchorPoint=Vector2.new(.5,.5)
-    f.BackgroundColor3=BG_COLOR
-    Instance.new("UICorner",f).CornerRadius=UDim.new(0,16)
+    -- Title  
+    local title = Instance.new("TextLabel", mainFrame)  
+    title.Size = UDim2.new(1, 0, 0, 70)  
+    title.Position = UDim2.new(0, 0, 0, 0)
+    title.Text = "SWIFT HUB"  
+    title.TextSize = 38  
+    title.Font = Enum.Font.GothamBlack  
+    title.BackgroundTransparency = 1  
+    title.TextColor3 = Color3.new(1, 1, 1)
+    
+    local titleGradient = Instance.new("UIGradient", title)  
+    titleGradient.Color = borderGradient.Color
 
-    -- Neon Border
-    local b=Instance.new("UIStroke",f)
-    local bg=Instance.new("UIGradient",b)
-    bg.Color=ColorSequence.new(THEME_COLOR_1,THEME_COLOR_2)
-
-    -- Logo
-    local title=Instance.new("TextLabel",f)
-    title.Size=UDim2.new(1,0,0,70)
-    title.Text="SWIFT HUB"
-    title.TextSize=38
-    title.Font=Enum.Font.GothamBlack
-    title.BackgroundTransparency=1
-    local tg=Instance.new("UIGradient",title)
-    tg.Color=bg.Color
-
-    -- Key Box
-    local box=Instance.new("TextBox",f)
-    box.Size=UDim2.new(.85,0,0,45)
-    box.Position=UDim2.new(.075,0,.45,0)
-    box.PlaceholderText="ENTER KEY"
+    -- Key Input
+    local keyBox = Instance.new("TextBox", mainFrame)  
+    keyBox.Size = UDim2.new(0.85, 0, 0, 45)  
+    keyBox.Position = UDim2.new(0.075, 0, 0.45, 0)  
+    keyBox.PlaceholderText = "ENTER LICENSE KEY"  
+    keyBox.Text = ""
+    keyBox.Font = Enum.Font.GothamSemibold
+    keyBox.TextSize = 16
+    keyBox.TextColor3 = Color3.new(1, 1, 1)
+    keyBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    
+    local keyCorner = Instance.new("UICorner", keyBox)
+    keyCorner.CornerRadius = UDim.new(0, 8)
+    
+    local keyStroke = Instance.new("UIStroke", keyBox)
+    keyStroke.Thickness = 1
+    keyStroke.Color = Color3.fromRGB(100, 100, 100)
 
     -- Verify Button
-    local btn=Instance.new("TextButton",f)
-    btn.Size=UDim2.new(.85,0,0,45)
-    btn.Position=UDim2.new(.075,0,.72,0)
-    btn.Text="VERIFY AND BIND"
-    local btg=Instance.new("UIGradient",btn)
-    btg.Color=bg.Color
+    local verifyBtn = Instance.new("TextButton", mainFrame)  
+    verifyBtn.Size = UDim2.new(0.85, 0, 0, 45)  
+    verifyBtn.Position = UDim2.new(0.075, 0, 0.72, 0)  
+    verifyBtn.Text = "VERIFY & BIND HWID"  
+    verifyBtn.Font = Enum.Font.GothamBold
+    verifyBtn.TextSize = 18
+    verifyBtn.TextColor3 = Color3.new(1, 1, 1)
+    verifyBtn.Name = "VerifyButton"
+    
+    local btnCorner = Instance.new("UICorner", verifyBtn)
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    
+    local btnGradient = Instance.new("UIGradient", verifyBtn)  
+    btnGradient.Color = borderGradient.Color
 
-    -- Button Callback
-    btn.MouseButton1Click:Connect(function()
-        local k=box.Text
-        if not data[k] then
-            showNotification("Invalid Key")
+    -- Button Hover Effects
+    verifyBtn.MouseEnter:Connect(function()
+        TweenService:Create(verifyBtn, TweenInfo.new(0.2), {Size = UDim2.new(0.87, 0, 0, 48)}):Play()
+    end)
+    
+    verifyBtn.MouseLeave:Connect(function()
+        TweenService:Create(verifyBtn, TweenInfo.new(0.2), {Size = UDim2.new(0.85, 0, 0, 45)}):Play()
+    end)
+
+    -- Verify Logic
+    verifyBtn.MouseButton1Click:Connect(function()
+        local key = keyBox.Text:gsub("%s+", "")
+        
+        if #key < 5 then
+            showNotification("Invalid Key Format")
             return
         end
-        if data[k]=="" then
-            data[k]=HWID
-            if updateWhitelist(data) then
-                showNotification("Bind Success")
-                gui:Destroy()
-                loadstring(game:HttpGet(HUB_SCRIPT_URL))()
+        
+        -- ดึง whitelist
+        local whitelist = fetchWhitelist()
+        
+        if not whitelist then
+            showNotification("Network Error")
+            return
+        end
+        
+        -- ตรวจสอบ key
+        if not whitelist[key] then
+            showNotification("Invalid License Key")
+            return
+        end
+        
+        -- ตรวจสอบว่า key ถูกใช้แล้วหรือยัง
+        if whitelist[key] ~= "" and whitelist[key] ~= HWID then
+            showNotification("Key Already Used")
+            return
+        end
+        
+        -- Bind HWID
+        whitelist[key] = HWID
+        local result = updateWhitelist(whitelist)
+        
+        if result and result.StatusCode == 200 then
+            showNotification("Success! Loading Hub...")
+            
+            -- ปิด UI
+            gui:Destroy()
+            
+            -- โหลดและรันสคริปต์จาก Pastebin
+            local success, hubScript = pcall(function()
+                return game:HttpGet("https://pastebin.com/raw/u8dTmTes")
+            end)
+            
+            if success then
+                local success2, err = pcall(loadstring, hubScript)
+                if not success2 then
+                    showNotification("Load Error: " .. tostring(err))
+                end
             else
-                showNotification("Failed to bind key")
+                showNotification("Failed to load from Pastebin")
             end
         else
-            showNotification("Key Already Used")
+            showNotification("Update Failed")
         end
     end)
+    
+    return gui
 end
 
--- Start Swift Hub
+-- ========== STARTUP ==========
+local function startSwiftHub()
+    -- ดึง whitelist
+    local whitelist = fetchWhitelist()
+    
+    -- ตรวจสอบว่า HWID ถูก whitelist แล้วหรือไม่
+    for key, hwid in pairs(whitelist) do
+        if hwid == HWID then
+            showNotification("Welcome back! Loading...")
+            
+            -- โหลดและรันสคริปต์จาก Pastebin
+            local success, hubScript = pcall(function()
+                return game:HttpGet("https://pastebin.com/raw/u8dTmTes")
+            end)
+            
+            if success then
+                local success2, err = pcall(loadstring, hubScript)
+                if not success2 then
+                    showNotification("Load Error")
+                    createKeyInputUI()
+                end
+            else
+                showNotification("Network Error")
+                createKeyInputUI()
+            end
+            
+            return
+        end
+    end
+    
+    -- ถ้ายังไม่ถูก whitelist, แสดง UI กรอกคีย์
+    createKeyInputUI()
+end
+
+-- เริ่มทำงาน
 startSwiftHub()
