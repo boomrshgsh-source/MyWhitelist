@@ -1,251 +1,220 @@
--- ========== CONFIG ==========
+-- ================= SWIFT HUB CONFIG =================
 local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
-local TOKEN = "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"
+local TOKEN = "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"
+local HUB_SCRIPT_URL = "https://pastebin.com/raw/u8dTmTes" -- ใส่ลิงก์สคริปต์จริง
 
--- ========== SERVICES ==========
-local HttpService = game:GetService("HttpService")
-local TweenService = game:GetService("TweenService")
+-- ================= SERVICES =================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
 
--- ========== HWID FUNCTION ==========
-local function getHWID()
-    local success, hwid = pcall(function()
-        return game:GetService("RbxAnalyticsService"):GetClientId()
+-- ================= THEME =================
+local THEME_COLOR_1 = Color3.fromRGB(0,255,200)
+local THEME_COLOR_2 = Color3.fromRGB(0,180,255)
+local BG_COLOR = Color3.fromRGB(12,12,12)
+
+-- ================= HWID =================
+local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
+
+-- ================= SWIFT HUB SECURITY CORE =================
+do
+    -- Disable HttpGet / namecall bypass
+    local rawmt = getrawmetatable(game)
+    setreadonly(rawmt,false)
+
+    local oldNamecall = rawmt.__namecall
+    rawmt.__namecall = newcclosure(function(self,...)
+        local method = getnamecallmethod()
+        if tostring(method) == "HttpGet" or tostring(method) == "HttpPost" then
+            Players.LocalPlayer:Kick("HttpGet Blocked")
+            return
+        end
+        return oldNamecall(self,...)
     end)
-    return success and hwid or "HWID_" .. tostring(math.random(100000,999999))
-end
-local HWID = getHWID()
-print("HWID:", HWID)
 
--- ========== GIST FETCH FUNCTION ==========
+    setreadonly(rawmt,true)
+
+    -- Capture real HTTP engine
+    local RAW_REQUEST =
+        (syn and syn.request)
+        or http_request
+        or request
+        or (fluxus and fluxus.request)
+
+    if not RAW_REQUEST then
+        Players.LocalPlayer:Kick("Executor not supported")
+        return
+    end
+
+    local SAFE_REQUEST = RAW_REQUEST
+
+    -- Secure HTTP wrapper
+    local function safeRequest(opt)
+        if SAFE_REQUEST ~= RAW_REQUEST then
+            Players.LocalPlayer:Kick("HTTP Hook Detected")
+            return
+        end
+        if type(opt) ~= "table" or not opt.Url then
+            Players.LocalPlayer:Kick("Invalid HTTP Call")
+            return
+        end
+        opt.Headers = opt.Headers or {}
+        opt.Headers["X-Swift-Security"] = "SwiftHub-Protected"
+        return SAFE_REQUEST(opt)
+    end
+
+    -- Background watchdog
+    task.spawn(function()
+        while task.wait(1.5) do
+            if SAFE_REQUEST ~= RAW_REQUEST then
+                Players.LocalPlayer:Kick("Security Violation")
+                break
+            end
+        end
+    end)
+
+    -- Public API
+    httpRequest = safeRequest
+end
+
+-- ================= WHITELIST FUNCTIONS =================
 local function fetchWhitelist()
-    local API = "https://api.github.com/gists/" .. GIST_ID
-    local headers = {
-        ["Authorization"] = "token " .. TOKEN,
-        ["User-Agent"] = "Roblox"
-    }
-    local response
-    local success, err = pcall(function()
-        if syn and syn.request then
-            response = syn.request({
-                Url = API,
-                Method = "GET",
-                Headers = headers
-            }).Body
-        else
-            response = game:HttpGet(API, true, headers)
-        end
-    end)
-    if not success then
-        LocalPlayer:Kick("Cannot connect to whitelist")
-        return nil
+    local h = {["Authorization"]="token "..TOKEN, ["User-Agent"]="Roblox"}
+    local r = httpRequest({Url="https://api.github.com/gists/"..GIST_ID, Method="GET", Headers=h})
+    if r and r.StatusCode == 200 then
+        local g = HttpService:JSONDecode(r.Body)
+        return HttpService:JSONDecode(g.files["whitelist.json"].content)
     end
-
-    local gist = HttpService:JSONDecode(response)
-    local data = HttpService:JSONDecode(gist.files["whitelist.json"].content)
-    return data
 end
 
--- ========== CHECK HWID FUNCTION ==========
-local function findKeyByHWID(data, hwid)
-    for key, storedHWID in pairs(data) do
-        if storedHWID == hwid then
-            return key
-        end
-    end
-    return nil
-end
-
--- ========== NOTIFICATION FUNCTION ==========
-local function showNotification(text)
-    local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "SwiftHubNotification"
-    notifGui.Parent = PlayerGui
-    notifGui.ResetOnSpawn = false
-
-    local notifFrame = Instance.new("Frame")
-    notifFrame.Size = UDim2.new(0, 250, 0, 50)
-    notifFrame.Position = UDim2.new(1, 260, 1, -70)
-    notifFrame.AnchorPoint = Vector2.new(1, 1)
-    notifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    notifFrame.BackgroundTransparency = 0.3 -- ทำให้โปร่ง
-    notifFrame.Parent = notifGui
-
-    local neonStroke = Instance.new("UIStroke")
-    neonStroke.Color = Color3.fromRGB(0, 200, 255)
-    neonStroke.Thickness = 3
-    neonStroke.Parent = notifFrame
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 12)
-    UICorner.Parent = notifFrame
-
-    local notifText = Instance.new("TextLabel")
-    notifText.Size = UDim2.new(1, -20, 1, 0)
-    notifText.Position = UDim2.new(0, 10, 0, 0)
-    notifText.Text = text
-    notifText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    notifText.BackgroundTransparency = 1
-    notifText.Font = Enum.Font.SourceSansBold
-    notifText.TextSize = 18
-    notifText.Parent = notifFrame
-
-    local tweenIn = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(1, -20, 1, -20)
-    })
-    tweenIn:Play()
-    tweenIn.Completed:Connect(function()
-        wait(2)
-        local tweenOut = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = UDim2.new(1, 260, 1, -70)
+local function updateWhitelist(data)
+    local h = {["Authorization"]="token "..TOKEN, ["Content-Type"]="application/json"}
+    local success, res = pcall(function()
+        return httpRequest({
+            Url="https://api.github.com/gists/"..GIST_ID,
+            Method="PATCH",
+            Headers=h,
+            Body=HttpService:JSONEncode({files={["whitelist.json"]={content=HttpService:JSONEncode(data)}}})
         })
-        tweenOut:Play()
-        tweenOut.Completed:Connect(function()
-            notifGui:Destroy()
-        end)
     end)
+    if success and res and res.StatusCode==200 then
+        return true
+    else
+        warn("Failed to update whitelist!", res)
+        return false
+    end
 end
 
--- ========== START SWIFT HUB FUNCTION ==========
+-- ================= NEON NOTIFY =================
+local function showNotification(txt)
+    local gui=Instance.new("ScreenGui",PlayerGui)
+    local f=Instance.new("Frame",gui)
+    f.Size=UDim2.new(0,300,0,65)
+    f.Position=UDim2.new(1,320,1,-60)
+    f.AnchorPoint=Vector2.new(1,1)
+    f.BackgroundColor3=BG_COLOR
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,14)
+
+    local s=Instance.new("UIStroke",f)
+    local g=Instance.new("UIGradient",s)
+    g.Color=ColorSequence.new(THEME_COLOR_1,THEME_COLOR_2)
+
+    local glow=Instance.new("UIStroke",f)
+    glow.Thickness=10
+    glow.Transparency=0.75
+    local gg=Instance.new("UIGradient",glow)
+    gg.Color=g.Color
+
+    local t=Instance.new("TextLabel",f)
+    t.Size=UDim2.new(1,-16,1,-16)
+    t.Position=UDim2.new(0,8,0,8)
+    t.BackgroundTransparency=1
+    t.Text=txt
+    t.TextColor3=Color3.new(1,1,1)
+    t.Font=Enum.Font.GothamBold
+    t.TextSize=15
+
+    TweenService:Create(f,TweenInfo.new(.6),{Position=UDim2.new(1,-20,1,-60)}):Play()
+    task.wait(3)
+    TweenService:Create(f,TweenInfo.new(.6),{Position=UDim2.new(1,320,1,-60)}):Play()
+    task.delay(.7,function() gui:Destroy() end)
+end
+
+-- ================= MAIN UI =================
 local function startSwiftHub()
     local data = fetchWhitelist()
     if not data then return end
 
-    -- ตรวจสอบ HWID ก่อน
-    local key = findKeyByHWID(data, HWID)
-    if key then
-        print("✅ Found existing HWID! Using Key:", key)
-        showNotification("Swift HUB Whitelist ✅")
-        -- โหลดสคริปต์
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/reothebest13-art/ERRORHUB.lua/refs/heads/main/ERRORHUB%20ALLMap"))()
-        return
+    -- HWID already in whitelist
+    for k,v in pairs(data) do
+        if v==HWID then
+            showNotification("Access Granted")
+            loadstring(game:HttpGet(HUB_SCRIPT_URL))()
+            return
+        end
     end
 
-    -- ถ้า HWID ไม่ตรงใคร แสดง UI ให้ใส่ Key
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "SwiftHubKeyUI"
-    ScreenGui.Parent = PlayerGui
-    ScreenGui.ResetOnSpawn = false
+    -- Create key input UI
+    local gui=Instance.new("ScreenGui",PlayerGui)
+    local f=Instance.new("Frame",gui)
+    f.Size=UDim2.new(0,400,0,240)
+    f.Position=UDim2.new(.5,0,.5,0)
+    f.AnchorPoint=Vector2.new(.5,.5)
+    f.BackgroundColor3=BG_COLOR
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,16)
 
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 380, 0, 220)
-    Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    Frame.BackgroundTransparency = 0.3 -- ทำให้โปร่ง
-    Frame.BorderSizePixel = 0
-    Frame.ClipsDescendants = true
-    Frame.Parent = ScreenGui
+    -- Neon Border
+    local b=Instance.new("UIStroke",f)
+    local bg=Instance.new("UIGradient",b)
+    bg.Color=ColorSequence.new(THEME_COLOR_1,THEME_COLOR_2)
 
-    local UIGradient = Instance.new("UIGradient")
-    UIGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,30)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,50,150))
-    }
-    UIGradient.Rotation = 45
-    UIGradient.Parent = Frame
+    -- Logo
+    local title=Instance.new("TextLabel",f)
+    title.Size=UDim2.new(1,0,0,70)
+    title.Text="SWIFT HUB"
+    title.TextSize=38
+    title.Font=Enum.Font.GothamBlack
+    title.BackgroundTransparency=1
+    local tg=Instance.new("UIGradient",title)
+    tg.Color=bg.Color
 
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 20)
-    UICorner.Parent = Frame
+    -- Key Box
+    local box=Instance.new("TextBox",f)
+    box.Size=UDim2.new(.85,0,0,45)
+    box.Position=UDim2.new(.075,0,.45,0)
+    box.PlaceholderText="ENTER KEY"
 
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 50)
-    Title.Position = UDim2.new(0, 0, 0, 0)
-    Title.Text = "Swift HUB"
-    Title.TextColor3 = Color3.fromRGB(0, 200, 255)
-    Title.BackgroundTransparency = 1
-    Title.Font = Enum.Font.SourceSansBold
-    Title.TextSize = 26
-    Title.Parent = Frame
+    -- Verify Button
+    local btn=Instance.new("TextButton",f)
+    btn.Size=UDim2.new(.85,0,0,45)
+    btn.Position=UDim2.new(.075,0,.72,0)
+    btn.Text="VERIFY AND BIND"
+    local btg=Instance.new("UIGradient",btn)
+    btg.Color=bg.Color
 
-    local TextBox = Instance.new("TextBox")
-    TextBox.Size = UDim2.new(0.8, 0, 0, 50)
-    TextBox.Position = UDim2.new(0.1, 0, 0, 80)
-    TextBox.PlaceholderText = "Enter your Key..."
-    TextBox.Text = ""
-    TextBox.TextColor3 = Color3.fromRGB(255,255,255)
-    TextBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    TextBox.BackgroundTransparency = 0.2 -- โปร่งนิดหน่อย
-    TextBox.TextScaled = true
-    TextBox.ClearTextOnFocus = false
-    TextBox.Font = Enum.Font.SourceSans
-    TextBox.Parent = Frame
-
-    local tbCorner = Instance.new("UICorner")
-    tbCorner.CornerRadius = UDim.new(0, 12)
-    tbCorner.Parent = TextBox
-
-    TextBox.Focused:Connect(function()
-        TweenService:Create(TextBox, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(50,50,80)}):Play()
-    end)
-    TextBox.FocusLost:Connect(function()
-        TweenService:Create(TextBox, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(30,30,40)}):Play()
-    end)
-
-    local SubmitButton = Instance.new("TextButton")
-    SubmitButton.Size = UDim2.new(0.5, 0, 0, 40)
-    SubmitButton.Position = UDim2.new(0.25, 0, 0, 150)
-    SubmitButton.Text = "Submit"
-    SubmitButton.TextColor3 = Color3.fromRGB(255,255,255)
-    SubmitButton.BackgroundColor3 = Color3.fromRGB(0,100,200)
-    SubmitButton.Font = Enum.Font.SourceSansBold
-    SubmitButton.TextSize = 20
-    SubmitButton.Parent = Frame
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 12)
-    btnCorner.Parent = SubmitButton
-
-    local UIStroke = Instance.new("UIStroke")
-    UIStroke.Color = Color3.fromRGB(0,200,255)
-    UIStroke.Thickness = 2
-    UIStroke.Parent = SubmitButton
-
-    SubmitButton.MouseEnter:Connect(function()
-        TweenService:Create(SubmitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0,150,255)}):Play()
-    end)
-    SubmitButton.MouseLeave:Connect(function()
-        TweenService:Create(SubmitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0,100,200)}):Play()
-    end)
-    SubmitButton.MouseButton1Click:Connect(function()
-        TweenService:Create(SubmitButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0,50,150)}):Play()
-        wait(0.1)
-        TweenService:Create(SubmitButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0,100,200)}):Play()
-
-        local userKey = TextBox.Text
-        if data[userKey] == nil then
-            LocalPlayer:Kick("Invalid Key")
+    -- Button Callback
+    btn.MouseButton1Click:Connect(function()
+        local k=box.Text
+        if not data[k] then
+            showNotification("Invalid Key")
             return
         end
-
-        -- ถ้า Key ยังไม่มี HWID, bind กับ HWID ปัจจุบัน
-        if data[userKey] == "" then
-            data[userKey] = HWID
-            local payload = HttpService:JSONEncode({files = {["whitelist.json"] = {content = HttpService:JSONEncode(data)}}})
-            if syn and syn.request then
-                syn.request({
-                    Url="https://api.github.com/gists/"..GIST_ID,
-                    Method="PATCH",
-                    Headers={["Authorization"]="token "..TOKEN, ["User-Agent"]="Roblox"},
-                    Body=payload
-                })
+        if data[k]=="" then
+            data[k]=HWID
+            if updateWhitelist(data) then
+                showNotification("Bind Success")
+                gui:Destroy()
+                loadstring(game:HttpGet(HUB_SCRIPT_URL))()
+            else
+                showNotification("Failed to bind key")
             end
+        else
+            showNotification("Key Already Used")
         end
-
-        -- ตรวจสอบ HWID อีกครั้ง
-        if data[userKey] ~= HWID then
-            LocalPlayer:Kick("HWID Mismatch - Key already used")
-            return
-        end
-
-        showNotification("Swift HUB Whitelist ✅")
-        ScreenGui:Destroy()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/reothebest13-art/ERRORHUB.lua/refs/heads/main/ERRORHUB%20ALLMap"))()
     end)
 end
 
--- เริ่มระบบ
+-- Start Swift Hub
 startSwiftHub()
