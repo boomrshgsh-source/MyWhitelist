@@ -1,234 +1,106 @@
--- ================== UTILITY FUNCTIONS ==================
+pcall(function() game:GetService("CoreGui"):FindFirstChild("ui"):Remove() end)
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = Players.LocalPlayer
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
 
-local function CreateTween(obj, properties, time, style, direction)
-    style = style or Enum.EasingStyle.Quad
-    direction = direction or Enum.EasingDirection.Out
-    local tween = TweenService:Create(obj, TweenInfo.new(time, style, direction), properties)
-    tween:Play()
-    return tween
+-- ====== THEME COLORS ======
+local COLOR_BG_MAIN       = Color3.fromRGB(10, 40, 60)   -- Background
+local COLOR_TOPBAR        = Color3.fromRGB(8, 32, 48)    -- Top bar
+local COLOR_TEXT_PRIMARY  = Color3.fromRGB(230, 255, 180) -- Neon yellow
+local COLOR_ACCENT        = Color3.fromRGB(0, 255, 200)  -- Neon cyan/teal
+local COLOR_BTN_NORMAL    = Color3.fromRGB(20, 100, 85)  -- Button base
+local COLOR_BTN_HOVER     = Color3.fromRGB(55, 255, 180) -- Button hover
+
+-- ====== MAIN UI ======
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Parent = CoreGui
+Main.BackgroundColor3 = COLOR_BG_MAIN
+Main.BorderSizePixel = 0
+Main.Position = UDim2.new(0.35,0,0.25,0)
+Main.Size = UDim2.new(0, 550, 0, 350)
+Main.Active = true
+Main.Selectable = true
+
+-- Rounded Corners
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = Main
+
+-- Shadow
+local Shadow = Instance.new("ImageLabel")
+Shadow.Name = "Shadow"
+Shadow.Parent = Main
+Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+Shadow.BackgroundTransparency = 1
+Shadow.Position = UDim2.new(0.5,0,0.5,0)
+Shadow.Size = UDim2.new(1, 30, 1, 30)
+Shadow.ZIndex = 0
+Shadow.Image = "rbxassetid://5554236805"
+Shadow.ImageColor3 = Color3.new(0,0,0)
+Shadow.ScaleType = Enum.ScaleType.Slice
+Shadow.SliceCenter = Rect.new(23,23,277,277)
+
+-- Top Bar
+local Top = Instance.new("Frame")
+Top.Name = "Top"
+Top.Parent = Main
+Top.BackgroundColor3 = COLOR_TOPBAR
+Top.BorderSizePixel = 0
+Top.Size = UDim2.new(1, 0, 0, 38)
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 8)
+TopCorner.Parent = Top
+
+-- Title
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "Title"
+TitleLabel.Parent = Top
+TitleLabel.AnchorPoint = Vector2.new(0, 0.5)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 14, 0.5, 0)
+TitleLabel.Size = UDim2.new(0, 300, 0, 24)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "Swift HUB Neon"
+TitleLabel.TextColor3 = COLOR_TEXT_PRIMARY
+TitleLabel.TextSize = 18
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Drag Support
+local dragging = false
+local dragInput, dragStart, startPos
+local function updateInput(input)
+    local Delta = input.Position - dragStart
+    Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + Delta.X, startPos.Y.Scale, startPos.Y.Offset + Delta.Y)
 end
 
-local function DragFrame(frame)
-    local dragging = false
-    local startPos
-    local startMouse
-
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startPos = frame.Position
-            startMouse = input.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            local delta = input.Position - startMouse
-            frame.Position = startPos + UDim2.new(0, delta.X, 0, delta.Y)
-        end
-    end)
-end
-
--- ================== LIBRARY ==================
-local Library = {}
-Library.Tabs = {}
-
--- ==== THEME SWIFT HUB: ฟ้า-เขียว + นีออนเหลือง ====
-local Theme = {
-    Main = Color3.fromRGB(25, 80, 75),          -- ฟ้าเขียวหลัก
-    Button = Color3.fromRGB(50, 170, 150),      -- ฟ้าเขียวปุ่ม
-    ButtonHover = Color3.fromRGB(70, 255, 180), -- ฟ้าเขียวนีออนเวลาผ่านเมาส์
-    Text = Color3.fromRGB(255, 255, 200),       -- เหลืองนีออน
-    Slider = Color3.fromRGB(0, 200, 170),       -- ฟ้าเขียว slider
-    Toggle = Color3.fromRGB(50, 200, 150),      -- ฟ้าเขียวนีออน toggle
-}
-
--- ================== WINDOW ==================
-function Library:Window(title)
-    pcall(function() CoreGui:FindFirstChild("ui"):Destroy() end)
-
-    local ui = Instance.new("ScreenGui")
-    ui.Name = "ui"
-    ui.Parent = CoreGui
-    ui.ResetOnSpawn = false
-    ui.IgnoreGuiInset = true
-
-    local Main = Instance.new("Frame")
-    Main.Name = "Main"
-    Main.Size = UDim2.new(0, 470, 0, 283)
-    Main.Position = UDim2.new(0.377,0,0.368,0)
-    Main.BackgroundColor3 = Theme.Main
-    Main.BorderSizePixel = 0
-    Main.Active = true
-    Main.Selectable = true
-    Main.Parent = ui
-
-    DragFrame(Main)
-
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1,0,0,30)
-    Title.BackgroundTransparency = 1
-    Title.TextColor3 = Theme.Text
-    Title.Text = title or "Swift HUB"
-    Title.Font = Enum.Font.SourceSansBold
-    Title.TextSize = 20
-    Title.Parent = Main
-
-    local TabContainer = Instance.new("Frame")
-    TabContainer.Size = UDim2.new(1,0,1,-30)
-    TabContainer.Position = UDim2.new(0,0,0,30)
-    TabContainer.BackgroundTransparency = 1
-    TabContainer.Parent = Main
-
-    self.TabContainer = TabContainer
-    self.Main = Main
-
-    return self
-end
-
--- ================== TABS ==================
-function Library:Tab(name)
-    local TabFrame = Instance.new("Frame")
-    TabFrame.Size = UDim2.new(1,0,1,0)
-    TabFrame.BackgroundTransparency = 1
-    TabFrame.Visible = false
-    TabFrame.Parent = self.TabContainer
-
-    self.Tabs[name] = TabFrame
-
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0,100,0,30)
-    Button.Position = UDim2.new(0, #self.Tabs*105, 0, 0)
-    Button.Text = name
-    Button.BackgroundColor3 = Theme.Button
-    Button.TextColor3 = Theme.Text
-    Button.Parent = self.Main
-
-    Button.MouseEnter:Connect(function()
-        CreateTween(Button,{BackgroundColor3=Theme.ButtonHover},0.2)
-    end)
-    Button.MouseLeave:Connect(function()
-        CreateTween(Button,{BackgroundColor3=Theme.Button},0.2)
-    end)
-
-    Button.MouseButton1Click:Connect(function()
-        for _,v in pairs(self.Tabs) do v.Visible = false end
-        TabFrame.Visible = true
-    end)
-
-    -- ================== ELEMENTS ==================
-    local Elements = {}
-
-    function Elements:AddButton(text, callback)
-        local Btn = Instance.new("TextButton")
-        Btn.Size = UDim2.new(0,120,0,25)
-        Btn.Position = UDim2.new(0,10,0,30 + #TabFrame:GetChildren()*30)
-        Btn.BackgroundColor3 = Theme.Button
-        Btn.TextColor3 = Theme.Text
-        Btn.Text = text
-        Btn.Parent = TabFrame
-
-        Btn.MouseEnter:Connect(function() CreateTween(Btn,{BackgroundColor3=Theme.ButtonHover},0.15) end)
-        Btn.MouseLeave:Connect(function() CreateTween(Btn,{BackgroundColor3=Theme.Button},0.15) end)
-
-        Btn.MouseButton1Click:Connect(callback)
-    end
-
-    function Elements:AddToggle(text, default, callback)
-        local Toggle = Instance.new("TextButton")
-        Toggle.Size = UDim2.new(0,120,0,25)
-        Toggle.Position = UDim2.new(0,10,0,30 + #TabFrame:GetChildren()*30)
-        Toggle.BackgroundColor3 = Theme.Toggle
-        Toggle.TextColor3 = Theme.Text
-        Toggle.Text = text.." [OFF]"
-        local state = default or false
-        Toggle.MouseButton1Click:Connect(function()
-            state = not state
-            Toggle.Text = text.." ["..(state and "ON" or "OFF").."]"
-            if callback then callback(state) end
-        end)
-        Toggle.Parent = TabFrame
-    end
-
-    function Elements:AddSlider(text, min, max, default, callback)
-        local SliderFrame = Instance.new("Frame")
-        SliderFrame.Size = UDim2.new(0,150,0,25)
-        SliderFrame.Position = UDim2.new(0,10,0,30 + #TabFrame:GetChildren()*30)
-        SliderFrame.BackgroundColor3 = Theme.Toggle
-        SliderFrame.Parent = TabFrame
-
-        local Label = Instance.new("TextLabel")
-        Label.Size = UDim2.new(1,0,1,0)
-        Label.BackgroundTransparency = 1
-        Label.TextColor3 = Theme.Text
-        Label.Text = text.." "..tostring(default)
-        Label.Font = Enum.Font.SourceSans
-        Label.TextSize = 14
-        Label.Parent = SliderFrame
-
-        local Slider = Instance.new("Frame")
-        Slider.Size = UDim2.new(default/(max-min),0,1,0)
-        Slider.BackgroundColor3 = Theme.Slider
-        Slider.Parent = SliderFrame
-
-        SliderFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local function move(input)
-                    local pos = math.clamp((input.Position.X - SliderFrame.AbsolutePosition.X)/SliderFrame.AbsoluteSize.X,0,1)
-                    Slider.Size = UDim2.new(pos,0,1,0)
-                    local value = min + (max-min)*pos
-                    Label.Text = text.." "..math.floor(value)
-                    if callback then callback(value) end
-                end
-                local conn
-                conn = UserInputService.InputChanged:Connect(function(inp)
-                    if inp.UserInputType == Enum.UserInputType.MouseMovement then move(inp) end
-                end)
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        conn:Disconnect()
-                    end
-                end)
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
             end
         end)
     end
+end)
 
-    function Elements:AddDropdown(text, options, callback)
-        local DropFrame = Instance.new("Frame")
-        DropFrame.Size = UDim2.new(0,150,0,25)
-        DropFrame.Position = UDim2.new(0,10,0,30 + #TabFrame:GetChildren()*30)
-        DropFrame.BackgroundColor3 = Theme.Toggle
-        DropFrame.Parent = TabFrame
-
-        local Label = Instance.new("TextLabel")
-        Label.Size = UDim2.new(1,0,1,0)
-        Label.BackgroundTransparency = 1
-        Label.TextColor3 = Theme.Text
-        Label.Text = text.." | "..tostring(options[1])
-        Label.Font = Enum.Font.SourceSans
-        Label.TextSize = 14
-        Label.Parent = DropFrame
-
-        DropFrame.MouseButton1Click:Connect(function()
-            local choice = options[math.random(1,#options)]
-            Label.Text = text.." | "..choice
-            if callback then callback(choice) end
-        end)
+Main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
     end
+end)
 
-    return Elements
-end
-
--- ================== RETURN LIBRARY ==================
-return Library
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateInput(input)
+    end
+end)
