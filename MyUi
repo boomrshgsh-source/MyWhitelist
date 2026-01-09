@@ -51,3 +51,14 @@ local Button = MainTab:CreateButton({
         -- The function that takes place when the button is pressed
     end
 })
+
+local Slider = MainTab:CreateSlider({
+    Name = "เทสSlider",
+    Range = {0, 200}, -- The Minimum And Maximum Values Respectively
+    Increment = 5, -- Basically The Changing Value/Rounding Off
+    CurrentValue = 100, -- The Starting Value
+    Callback = function(Value)
+        -- The function that takes place when the slider changes
+        -- The variable (Value) is a number which correlates to the value the slider is currently at
+    end
+}, "Slider")
