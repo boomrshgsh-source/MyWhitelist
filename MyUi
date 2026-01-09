@@ -230,3 +230,141 @@ local function createTab(name)
 
     return elements
 end
+-- ================== Slider ==================
+function createSlider(parentPage, text, min, max, default, callback)
+    local sliderVal = default or min
+
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Parent = parentPage
+    SliderFrame.BackgroundColor3 = COLOR_BTN_NORMAL
+    SliderFrame.Size = UDim2.new(1,-10,0,32)
+    SliderFrame.ClipsDescendants = true
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = SliderFrame
+    Label.Size = UDim2.new(1,0,1,0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text.." "..sliderVal
+    Label.TextColor3 = COLOR_TEXT_PRIMARY
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 16
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Position = UDim2.new(0,6,0,0)
+
+    local Fill = Instance.new("Frame")
+    Fill.Parent = SliderFrame
+    Fill.BackgroundColor3 = COLOR_ACCENT
+    Fill.Size = UDim2.new((sliderVal-min)/(max-min),0,1,0)
+    Fill.Position = UDim2.new(0,0,0,0)
+
+    local dragging = false
+
+    SliderFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+
+    SliderFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local pos = math.clamp((input.Position.X - SliderFrame.AbsolutePosition.X)/SliderFrame.AbsoluteSize.X,0,1)
+            Fill.Size = UDim2.new(pos,0,1,0)
+            sliderVal = math.floor(min + (max-min)*pos)
+            Label.Text = text.." "..sliderVal
+            if callback then callback(sliderVal) end
+        end
+    end)
+end
+
+-- ================== Dropdown ==================
+function createDropdown(parentPage, text, options, callback)
+    local current = options[1]
+
+    local DropFrame = Instance.new("TextButton")
+    DropFrame.Parent = parentPage
+    DropFrame.BackgroundColor3 = COLOR_BTN_NORMAL
+    DropFrame.Size = UDim2.new(1,-10,0,32)
+    DropFrame.Font = Enum.Font.Gotham
+    DropFrame.Text = text.." | "..current
+    DropFrame.TextColor3 = COLOR_TEXT_PRIMARY
+    DropFrame.TextSize = 16
+
+    local opened = false
+    local OptionFrame
+
+    DropFrame.MouseButton1Click:Connect(function()
+        if not opened then
+            OptionFrame = Instance.new("Frame")
+            OptionFrame.Parent = parentPage
+            OptionFrame.BackgroundColor3 = COLOR_BG_MAIN
+            OptionFrame.Position = UDim2.new(0,0,0,DropFrame.AbsolutePosition.Y + DropFrame.AbsoluteSize.Y)
+            OptionFrame.Size = UDim2.new(1,-10,0,#options*28)
+
+            for i,opt in pairs(options) do
+                local optBtn = Instance.new("TextButton")
+                optBtn.Parent = OptionFrame
+                optBtn.BackgroundColor3 = COLOR_BTN_NORMAL
+                optBtn.Size = UDim2.new(1,0,0,28)
+                optBtn.Position = UDim2.new(0,0,0,(i-1)*28)
+                optBtn.Text = opt
+                optBtn.TextColor3 = COLOR_TEXT_PRIMARY
+                optBtn.Font = Enum.Font.Gotham
+                optBtn.TextSize = 16
+
+                optBtn.MouseEnter:Connect(function()
+                    TweenService:Create(optBtn,TweenInfo.new(0.15),{BackgroundColor3=COLOR_BTN_HOVER}):Play()
+                end)
+                optBtn.MouseLeave:Connect(function()
+                    TweenService:Create(optBtn,TweenInfo.new(0.15),{BackgroundColor3=COLOR_BTN_NORMAL}):Play()
+                end)
+
+                optBtn.MouseButton1Click:Connect(function()
+                    current = opt
+                    DropFrame.Text = text.." | "..current
+                    if callback then callback(current) end
+                    OptionFrame:Destroy()
+                    opened = false
+                end)
+            end
+            opened = true
+        else
+            OptionFrame:Destroy()
+            opened = false
+        end
+    end)
+end
+
+-- ================== Keybind ==================
+function createKeybind(parentPage, text, defaultKey, callback)
+    local key = defaultKey or Enum.KeyCode.F
+    local KeyBtn = Instance.new("TextButton")
+    KeyBtn.Parent = parentPage
+    KeyBtn.BackgroundColor3 = COLOR_BTN_NORMAL
+    KeyBtn.Size = UDim2.new(1,-10,0,32)
+    KeyBtn.Font = Enum.Font.Gotham
+    KeyBtn.Text = text.." ["..key.Name.."]"
+    KeyBtn.TextColor3 = COLOR_TEXT_PRIMARY
+    KeyBtn.TextSize = 16
+
+    local waiting = false
+
+    KeyBtn.MouseButton1Click:Connect(function()
+        KeyBtn.Text = text.." [..]"
+        waiting = true
+    end)
+
+    UserInputService.InputBegan:Connect(function(input)
+        if waiting and input.UserInputType == Enum.UserInputType.Keyboard then
+            key = input.KeyCode
+            KeyBtn.Text = text.." ["..key.Name.."]"
+            waiting = false
+            if callback then callback(key) end
+        end
+    end)
+end
