@@ -368,3 +368,27 @@ function createKeybind(parentPage, text, defaultKey, callback)
         end
     end)
 end
+-- ================== LIBRARY OBJECT ==================
+local Library = {}
+
+-- สร้าง Window
+function Library:Window(title)
+    title = title or "Swift HUB Neon"
+    -- Main, TopBar, Tabs, Pages ถูกสร้างไปแล้วในส่วนก่อนหน้า
+    return {
+        Tab = function(_, name)
+            return createTab(name)
+        end,
+        Slider = function(_, text, min, max, default, callback)
+            return createSlider(PageFrame, text, min, max, default, callback)
+        end,
+        Dropdown = function(_, text, options, callback)
+            return createDropdown(PageFrame, text, options, callback)
+        end,
+        Keybind = function(_, text, defaultKey, callback)
+            return createKeybind(PageFrame, text, defaultKey, callback)
+        end
+    }
+end
+
+return Library
