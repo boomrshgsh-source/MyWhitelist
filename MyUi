@@ -62,3 +62,31 @@ local Slider = MainTab:CreateSlider({
         -- The variable (Value) is a number which correlates to the value the slider is currently at
     end
 }, "Slider")
+
+
+local Input = MainTab:CreateInput({
+    Name = "เทส Input",
+    Description = nil,
+    PlaceholderText = "Input Placeholder",
+    CurrentValue = "", -- the current text
+    Numeric = false, -- When true, the user may only type numbers in the box (Example walkspeed)
+    MaxCharacters = nil, -- if a number, the textbox length cannot exceed the number
+    Enter = false, -- When true, the callback will only be executed when the user presses enter.
+    Callback = function(Text)
+        -- The function that takes place when the input is changed
+        -- The variable (Text) is a string for the value in the text box
+    end
+}, "Input") -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+
+local Dropdown = MainTab:CreateDropdown({
+    Name = "Dropdown Example",
+    Description = nil,
+    Options = {"เทส1","เทส2"},
+    CurrentOption = {"Option 1"},
+    MultipleOptions = false,
+    SpecialType = nil,
+    Callback = function(Options)
+        -- The function that takes place when the selected option is changed
+        -- If MultipleOptions is true then The variable (Options) is a table of strings for the current selected options. Else, it is a string of the currentoption
+    end
+}, "Dropdown") -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
