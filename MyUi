@@ -104,3 +104,129 @@ UserInputService.InputChanged:Connect(function(input)
         updateInput(input)
     end
 end)
+-- Tabs Container
+local TabFrame = Instance.new("Frame")
+TabFrame.Name = "TabFrame"
+TabFrame.Parent = Main
+TabFrame.BackgroundTransparency = 1
+TabFrame.Position = UDim2.new(0, 0, 0, 38)
+TabFrame.Size = UDim2.new(0, 140, 1, -38)
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.Parent = TabFrame
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0,6)
+
+-- Pages Container
+local PageFrame = Instance.new("Frame")
+PageFrame.Name = "PageFrame"
+PageFrame.Parent = Main
+PageFrame.BackgroundTransparency = 1
+PageFrame.Position = UDim2.new(0, 142, 0, 38)
+PageFrame.Size = UDim2.new(1, -142, 1, -38)
+
+-- Function to create new Page
+local function newPage()
+    local page = Instance.new("ScrollingFrame")
+    page.Name = "Page"
+    page.Parent = PageFrame
+    page.BackgroundTransparency = 1
+    page.Size = UDim2.new(1,0,1,0)
+    page.CanvasSize = UDim2.new(0,0,2,0)
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = COLOR_ACCENT
+
+    local layout = Instance.new("UIListLayout")
+    layout.Parent = page
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 8)
+
+    return page
+end
+
+-- Tabs Management
+local Tabs = {}
+local Pages = {}
+
+-- Function to create a Tab
+local function createTab(name)
+    local idx = #Tabs + 1
+
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Name = "Tab_"..idx
+    tabBtn.Parent = TabFrame
+    tabBtn.BackgroundColor3 = COLOR_BTN_NORMAL
+    tabBtn.Size = UDim2.new(1,-10,0,30)
+    tabBtn.Font = Enum.Font.Gotham
+    tabBtn.Text = name
+    tabBtn.TextColor3 = COLOR_TEXT_PRIMARY
+    tabBtn.TextSize = 16
+
+    -- Hover effect
+    tabBtn.MouseEnter:Connect(function()
+        TweenService:Create(tabBtn,TweenInfo.new(0.15),{BackgroundColor3=COLOR_BTN_HOVER}):Play()
+    end)
+    tabBtn.MouseLeave:Connect(function()
+        TweenService:Create(tabBtn,TweenInfo.new(0.15),{BackgroundColor3=COLOR_BTN_NORMAL}):Play()
+    end)
+
+    -- Create associated Page
+    local page = newPage()
+    page.Visible = false
+    tabBtn.MouseButton1Click:Connect(function()
+        -- Hide other pages
+        for _,p in pairs(PageFrame:GetChildren()) do
+            if p:IsA("ScrollingFrame") then p.Visible = false end
+        end
+        page.Visible = true
+    end)
+
+    Tabs[idx] = tabBtn
+    Pages[idx] = page
+
+    -- Return helper to add elements
+    local elements = {}
+    
+    function elements:Button(text,callback)
+        local btn = Instance.new("TextButton")
+        btn.Parent = page
+        btn.BackgroundColor3 = COLOR_BTN_NORMAL
+        btn.Size = UDim2.new(1,-10,0,32)
+        btn.Font = Enum.Font.Gotham
+        btn.Text = text
+        btn.TextColor3 = COLOR_TEXT_PRIMARY
+        btn.TextSize = 16
+
+        btn.MouseEnter:Connect(function()
+            TweenService:Create(btn,TweenInfo.new(0.15),{BackgroundColor3=COLOR_BTN_HOVER}):Play()
+        end)
+        btn.MouseLeave:Connect(function()
+            TweenService:Create(btn,TweenInfo.new(0.15),{BackgroundColor3=COLOR_BTN_NORMAL}):Play()
+        end)
+
+        btn.MouseButton1Click:Connect(callback)
+        return btn
+    end
+
+    function elements:Toggle(text,default,callback)
+        local toggled = default or false
+        local t = Instance.new("TextButton")
+        t.Parent = page
+        t.BackgroundColor3 = toggled and COLOR_ACCENT or COLOR_BTN_NORMAL
+        t.Size = UDim2.new(1,-10,0,32)
+        t.Font = Enum.Font.Gotham
+        t.Text = text.." ["..(toggled and "ON" or "OFF").."]"
+        t.TextColor3 = COLOR_TEXT_PRIMARY
+        t.TextSize = 16
+
+        t.MouseButton1Click:Connect(function()
+            toggled = not toggled
+            t.Text = text.." ["..(toggled and "ON" or "OFF").."]"
+            t.BackgroundColor3 = toggled and COLOR_ACCENT or COLOR_BTN_NORMAL
+            if callback then callback(toggled) end
+        end)
+        return t
+    end
+
+    return elements
+end
