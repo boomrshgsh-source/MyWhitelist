@@ -1,9 +1,14 @@
 --================= SWIFT HUB WHITELIST =================--
 
-local GIST_RAW   = "https://gist.githubusercontent.com/boomrshgsh-source/06a3e054df764e01ec58feb6889b87f9/raw/897efe302d11ef1df6b63386851dbe2ff63033b2/whitelist.json"
+-- Raw JSON สำหรับ Key/HWID
+local GIST_RAW   = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/main/whitelist.json"
+
+-- API สำหรับ PATCH HWID (ต้องมี GitHub Token)
 local GIST_API   = "https://api.github.com/gists/06a3e054df764e01ec58feb6889b87f9"
 local TOKEN      = "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"
-local MAIN_SCRIPT = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/refs/heads/main/Test"
+
+-- สคริปต์จริงที่โหลดหลังเช็ค Key/HWID
+local MAIN_SCRIPT = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/main/Test.lua"
 
 local Key = _G.Key
 
@@ -30,8 +35,8 @@ if not success or type(DB) ~= "table" then
 end
 
 local data = DB[Key]
-if not data then
-    Kick("[Swift HUB]\nInvalid Key")
+if not data or type(data) ~= "table" then
+    Kick("[Swift HUB]\nInvalid Key or bad format")
 end
 
 -- เช็ควันหมดอายุ
@@ -70,9 +75,9 @@ if not data.hwid or data.hwid == "" then
     end
 else
     if tostring(data.hwid) ~= tostring(HWID) then
-        Kick("[Swift HUB]\ninvalid Hwid")
+        Kick("[Swift HUB]\nInvalid HWID")
     end
 end
 
--- ผ่านไวลิส
-loadstring(game:HttpGet("https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/refs/heads/main/Test"))()
+-- ผ่านไวลิส → โหลดสคริปต์จริง
+loadstring(game:HttpGet(MAIN_SCRIPT))()
