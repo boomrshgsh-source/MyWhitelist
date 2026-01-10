@@ -1,13 +1,13 @@
 --================= SWIFT HUB WHITELIST =================--
 
--- Raw JSON สำหรับ Key/HWID
+-- ลิงก์ Raw JSON ของ Key/HWID
 local GIST_RAW   = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/main/whitelist.json"
 
 -- API สำหรับ PATCH HWID (ต้องมี GitHub Token)
 local GIST_API   = "https://api.github.com/gists/06a3e054df764e01ec58feb6889b87f9"
 local TOKEN      = "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"
 
--- สคริปต์จริงที่โหลดหลังเช็ค Key/HWID
+-- ลิงก์สคริปต์จริงที่จะโหลดหลังเช็ค Key/HWID
 local MAIN_SCRIPT = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/main/Test.lua"
 
 local Key = _G.Key
@@ -79,5 +79,5 @@ else
     end
 end
 
--- ผ่านไวลิส → โหลดสคริปต์จริง
+-- ผ่านไวลิส → โหลดสคริปต์จริงจาก GitHub
 loadstring(game:HttpGet(MAIN_SCRIPT))()
