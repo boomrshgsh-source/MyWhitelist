@@ -1,0 +1,138 @@
+-- ================== CONFIG ==================
+getgenv().AimbotEnabled = true
+getgenv().FOV = 150
+-- ===========================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- ================== FOV CIRCLE ==================
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = true
+fovCircle.Filled = false
+fovCircle.Thickness = 2
+fovCircle.NumSides = 120
+fovCircle.Color = Color3.fromRGB(255,255,255)
+fovCircle.Transparency = 1
+
+local tracer = Drawing.new("Line")
+tracer.Color = Color3.fromRGB(255,0,0)
+tracer.Thickness = 2
+tracer.Transparency = 1
+tracer.Visible = false
+
+getgenv().TargetPosition = nil
+
+-- ================== TARGET FIND ==================
+local function getClosest()
+    local closest = nil
+    local shortest = getgenv().FOV
+    local center = Camera.ViewportSize/2
+
+    for _,p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = p.Character.HumanoidRootPart
+            local pos, on = Camera:WorldToViewportPoint(hrp.Position)
+            if on then
+                local d = (Vector2.new(pos.X,pos.Y) - center).Magnitude
+                if d < shortest then
+                    shortest = d
+                    closest = hrp
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- ================== RENDER ==================
+RunService.RenderStepped:Connect(function()
+    local size = Camera.ViewportSize
+    local center = Vector2.new(size.X/2, size.Y/2)
+
+    fovCircle.Position = center
+    fovCircle.Radius = getgenv().FOV
+
+    local hrp = getClosest()
+    if getgenv().AimbotEnabled and hrp then
+        local pos, on = Camera:WorldToViewportPoint(hrp.Position)
+        if on then
+            tracer.From = center
+            tracer.To = Vector2.new(pos.X,pos.Y)
+            tracer.Visible = true
+            getgenv().TargetPosition = hrp.CFrame
+            return
+        end
+    end
+    tracer.Visible = false
+    getgenv().TargetPosition = nil
+end)
+
+-- ================== METATABLE AIM ==================
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+setreadonly(mt,false)
+
+mt.__namecall = newcclosure(function(...)
+    local m = getnamecallmethod()
+    local a = {...}
+
+    if not getgenv().AimbotEnabled or not getgenv().TargetPosition then
+        return old(unpack(a))
+    end
+
+    if m == "FireServer" then
+        if typeof(a[2])=="CFrame" then
+            a[2]=getgenv().TargetPosition
+        elseif typeof(a[2])=="Vector3" then
+            a[2]=getgenv().TargetPosition.Position
+        end
+        return old(unpack(a))
+    end
+
+    if m == "InvokeServer" then
+        if typeof(a[3])=="CFrame" then
+            a[3]=getgenv().TargetPosition
+        elseif typeof(a[3])=="Vector3" then
+            a[3]=getgenv().TargetPosition.Position
+        end
+        return old(unpack(a))
+    end
+
+    return old(unpack(a))
+end)
+
+setreadonly(mt,true)
+
+
+
+ ==================
+PvPTab:Toggle({
+    Title = "Silent aim",
+    Desc = "k",
+    Default = getgenv().AimbotEnabled,
+    Callback = function(state)
+        getgenv().AimbotEnabled = state
+    end
+})
+
+PvPTab:Slider({
+    Title = "FOV Radius",
+    Desc = "ปรับขนาดวงเล็ง",
+    Min = 50,
+    Max = 400,
+    Default = getgenv().FOV,
+    Callback = function(val)
+        getgenv().FOV = val
+    end
+})
+
+PvPTab:Button({
+    Title = "Reset FOV",
+    Desc = "ตั้งค่า FOV กลับเป็น 150",
+    Callback = function()
+        getgenv().FOV = 150
+    end
+})
