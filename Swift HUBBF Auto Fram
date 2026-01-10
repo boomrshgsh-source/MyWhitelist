@@ -3,16 +3,24 @@ local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local function ch()
+local function chQ()
     local lv = player.Data.Level.Value
     if lv < 15 then
-        NameMon = nil
-        NameQuest = nil
+        NameMon = Bandit
+        NameQuest = BanditQuest1
         TP = nil
-        num = nil
+        num = 1
     end
 end
 
+chQ()
+
 if not player.PlayerGui.Main.Quest.Visible then
-    ch()
+    local args = {
+	"StartQuest",
+	"BanditQuest1",
+	num
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
+
 end
