@@ -123,6 +123,7 @@ end)
 setreadonly(mt,true)
 
 
+local PvPTab = Window:Tab({Title = "PvP", Icon = "user"})
 
  ==================
 PvPTab:Toggle({
