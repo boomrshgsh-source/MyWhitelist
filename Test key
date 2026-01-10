@@ -3,7 +3,7 @@
 local GIST_RAW   = "https://gist.githubusercontent.com/boomrshgsh-source/06a3e054df764e01ec58feb6889b87f9/raw/897efe302d11ef1df6b63386851dbe2ff63033b2/whitelist.json"
 local GIST_API   = "https://api.github.com/gists/06a3e054df764e01ec58feb6889b87f9"
 local TOKEN      = "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"
-local MAIN_SCRIPT = "https://raw.githubusercontent.com/Sawarddekub/Quality-/refs/heads/main/luraph"
+local MAIN_SCRIPT = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/refs/heads/main/Test"
 
 local Key = _G.Key
 
@@ -75,4 +75,4 @@ else
 end
 
 -- ผ่านไวลิส
-loadstring(game:HttpGet(https://raw.githubusercontent.com/Sawarddekub/Quality-/refs/heads/main/luraph))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/refs/heads/main/Test"))()
