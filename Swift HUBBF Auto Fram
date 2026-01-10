@@ -1,26 +1,78 @@
+-- SERVICES
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local function chQ()
-    local lv = player.Data.Level.Value
-    if lv < 15 then
-        NameMon = Bandit
-        NameQuest = BanditQuest1
-        TP = nil
-        num = 1
+local Player = Players.LocalPlayer
+local Char = Player.Character or Player.CharacterAdded:Wait()
+local HRP = Char:WaitForChild("HumanoidRootPart")
+
+-- config
+_G.AutoFarm = true
+
+-- QUEST DATA
+local NM, NQ, Number, PosQ
+
+-- CHECK LEVEL
+local function CheckLevel()
+    local lv = Player.Data.Level.Value
+
+    if lv <= 10 then
+        NM = "Bandit"
+        NQ = "BanditQuest1"
+        Number = 1
+        PosQ = CFrame.new(1059.02515, 16.2893543, 1551.72314)
     end
 end
 
-chQ()
 
-if not player.PlayerGui.Main.Quest.Visible then
-    local args = {
-	"StartQuest",
-	"BanditQuest1",
-	num
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
-
+local function TweenTo(pos)
+    HRP.CFrame = HRP.CFrame:Lerp(pos, 0.2)
 end
+
+local function TPTo(pos)
+    HRP.CFrame = pos
+end
+
+-- start QUEST
+local function StartQuest()
+    TweenTo(PosQ)
+    task.wait(0.3)
+
+    ReplicatedStorage.Remotes.CommF_:InvokeServer(
+        "StartQuest",
+        NQ,
+        Number
+    )
+end
+
+-- farmmon
+local function FarmMonster()
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        local root = v:FindFirstChild("HumanoidRootPart")
+        local hum = v:FindFirstChildOfClass("Humanoid")
+
+        if root and hum and hum.Health > 0 and v.Name == NM then
+            repeat
+                task.wait()
+                TPTo(root.CFrame * CFrame.new(0, 10, 0))
+            until hum.Health <= 0
+        end
+    end
+end
+
+-- ลูป
+task.spawn(function()
+    while task.wait() do
+        if _G.AutoFarm then
+            pcall(function()
+                CheckLevel()
+
+                if Player.PlayerGui.Main.Quest.Visible == false then
+                    StartQuest() -- Tween
+                else
+                    FarmMonster() -- TP
+                end
+            end)
+        end
+    end
+end)
