@@ -13,6 +13,6 @@ local function ch()
     end
 end
 
-if not game:GetService("Players").LocalPlayer.PlayerGui.Main.Quest.Visible true
-
+if not player.PlayerGui.Main.Quest.Visible then
+    ch()
 end
