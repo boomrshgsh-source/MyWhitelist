@@ -16,7 +16,7 @@ local NM, NQ, Number, PosQ
 local function CheckLevel()
     local lv = Player.Data.Level.Value
 
-    if lv <= 10 then
+    if lv <= 15 then
         NM = "Bandit"
         NQ = "BanditQuest1"
         Number = 1
