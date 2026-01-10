@@ -1,3 +1,20 @@
+local WindUI = 
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Footagesus/WindUI/refs/heads/main/main_example.lua'))()
+-- =========================
+-- Window UI
+-- =========================
+local Window = WindUI:CreateWindow({
+    Title = "Swift HUB",
+    Icon = "",
+    Author = "",
+    Folder = "Swift HUB",
+    Size = UDim2.fromOffset(450, 330),
+    Theme = "Dark",
+    Transparent = true,
+    Resizable = true,
+})
+
+
 -- ================== CONFIG ==================
 getgenv().AimbotEnabled = true
 getgenv().FOV = 150
