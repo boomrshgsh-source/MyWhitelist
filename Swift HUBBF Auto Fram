@@ -7,10 +7,11 @@ local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 
 --// SETTINGS
-_G.AutoFarm = true  -- เปิด/ปิดระบบทั้งหมด (AutoFarm + AutoAttack AoE)
+_G.AutoFarm = true
 local TweenSpeed = 300
-local HeadOffset = CFrame.new(0, 10, 0)
+local HeadOffset = CFrame.new(0, 19, 0)
 local ATTACK_RANGE = 25
+local MIN_TWEEN_DIST = 20 -- ถ้าใกล้กว่านี้จะไม่ Tween
 
 --// LEVEL CHECK
 local function CheckLevel()
@@ -28,7 +29,7 @@ local function CheckLevel()
         Number = 1
         PQ = CFrame.new(-1600, 36, 150)
 
-    elseif lv <= 2 then
+    elseif lv <= 5 then
         NM = "Gorilla"
         NQ = "JungleQuest"
         Number = 2
@@ -47,8 +48,9 @@ end
 local function TweenTo(pos)
     local hrp = LP.Character:WaitForChild("HumanoidRootPart")
     local distance = (hrp.Position - pos.Position).Magnitude
-    local info = TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear)
+    if distance < MIN_TWEEN_DIST then return end -- ถ้าใกล้เกินไม่ Tween
 
+    local info = TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, info, { CFrame = pos })
     tween:Play()
     tween.Completed:Wait()
@@ -62,7 +64,7 @@ end
 
 --// AUTO ATTACK (AOE)
 local function AutoAttack()
-    if not _G.AutoFarm then return end  -- ใช้ _G.AutoFarm ควบคุมระบบตี
+    if not _G.AutoFarm then return end
 
     local char = LP.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -91,14 +93,14 @@ end
 --// MAIN LOOP
 task.spawn(function()
     while task.wait(0.15) do
-        if not _G.AutoFarm then continue end  -- ใช้ _G.AutoFarm ควบคุมทั้งระบบ
+        if not _G.AutoFarm then continue end
 
         pcall(function()
             CheckLevel()
 
             -- ถ้าไม่มี Quest → ไปเอา Quest ใหม่
             if not HasQuest() then
-                TweenTo(PQ)
+                TweenTo(PQ) -- Tween ไป NPC รับเควส
                 task.wait(0.3)
 
                 ReplicatedStorage.Remotes.CommF_:InvokeServer(
@@ -118,12 +120,15 @@ task.spawn(function()
 
                 if root and hum and hum.Health > 0 and v.Name == NM then
 
-                    -- Move ใกล้มอน
-                    if (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude > 15 then
+                    local hrpPos = LP.Character.HumanoidRootPart.Position
+                    local mobDist = (root.Position - hrpPos).Magnitude
+
+                    -- Tween ไปหามอน ถ้าไกล
+                    if mobDist > MIN_TWEEN_DIST then
                         TweenTo(root.CFrame * HeadOffset)
                     end
 
-                    -- Stay บนหัว + Auto Attack AoE
+                    -- TP บนหัวมอน + Auto Attack
                     repeat
                         task.wait()
                         if not HasQuest() then return end
