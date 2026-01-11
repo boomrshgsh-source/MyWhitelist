@@ -155,58 +155,45 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
---// Player & Folder
 local LocalPlayer = Players.LocalPlayer
 local EnemiesFolder = Workspace:WaitForChild("Enemies")
 
---// ฟังก์ชัน Merge NM แบบรวมเป็นกลุ่ม ไม่ลอย
+-- ฟังก์ชันรวมมอนตาม NM
 local function MergeNM()
-    if not NM then return end
-    local nmMobs = {}
+    local mobs = {}
 
-    -- เก็บมอนสเตอร์ NM ทั้งหมด
     for _, mob in pairs(EnemiesFolder:GetChildren()) do
-        if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
-            table.insert(nmMobs, mob)
+        if mob.Name == NM 
+        and mob:FindFirstChild("HumanoidRootPart") 
+        and mob:FindFirstChildOfClass("Humanoid") 
+        and mob.Humanoid.Health > 0 then
+            table.insert(mobs, mob)
         end
     end
 
-    if #nmMobs <= 1 then return end -- ตัวเดียวไม่ต้องรวม
+    if #mobs <= 1 then return end
 
-    local ref = nmMobs[1] -- ตัวอ้างอิง
-    local basePos = ref.HumanoidRootPart.Position
+    local base = mobs[1].HumanoidRootPart.Position
 
-    -- รวมตัวอื่นรอบตัวอ้างอิง
-    for i = 2, #nmMobs do
-        local mob = nmMobs[i]
-        if mob and mob.Parent then
-            local offset = Vector3.new((i-1)*2, 0, 0) -- เว้นระยะ X 2 studs ต่อมอน
-            local newPos = Vector3.new(basePos.X + offset.X, mob.HumanoidRootPart.Position.Y, basePos.Z + offset.Z)
-            mob.HumanoidRootPart.CFrame = CFrame.new(newPos)
-
-            -- ปรับขนาดและคุณสมบัติ
-            mob.HumanoidRootPart.Size = Vector3.new(60,60,60)
-            mob.HumanoidRootPart.Transparency = 1
-            mob.HumanoidRootPart.CanCollide = false
-            mob.Humanoid.WalkSpeed = 0
-            mob.Humanoid.JumpPower = 0
-        end
+    for i = 2, #mobs do
+        local mob = mobs[i]
+        mob.HumanoidRootPart.CFrame = CFrame.new(base)
+        mob.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+        mob.HumanoidRootPart.CanCollide = false
+        mob.HumanoidRootPart.Transparency = 1
+        mob.Humanoid.WalkSpeed = 0
+        mob.Humanoid.JumpPower = 0
     end
 
-    -- ปรับตัวอ้างอิงด้วย
-    ref.HumanoidRootPart.Size = Vector3.new(60,60,60)
-    ref.HumanoidRootPart.Transparency = 1
-    ref.HumanoidRootPart.CanCollide = false
-    ref.Humanoid.WalkSpeed = 0
-    ref.Humanoid.JumpPower = 0
+    mobs[1].HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+    mobs[1].HumanoidRootPart.CanCollide = false
+    mobs[1].HumanoidRootPart.Transparency = 1
+    mobs[1].Humanoid.WalkSpeed = 0
+    mobs[1].Humanoid.JumpPower = 0
 
-    -- SimulationRadius ให้ครอบคลุมมอนทั้งหมด
     if sethiddenproperty then
         sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
     end
 end
 
---// รัน MergeNM ทุก Heartbeat
-RunService.Heartbeat:Connect(function()
-    pcall(MergeNM)
-end)
+RunService.Heartbeat:Connect(MergeNM)
