@@ -1,0 +1,151 @@
+getgenv().Auto_Farm = true
+
+local workspace = cloneref(game:GetService('Workspace'))
+local Rep = cloneref(game:GetService('ReplicatedStorage'))
+local Players = cloneref(game:GetService('Players'))
+local Client = Players.LocalPlayer 
+local Character = Client.Character or Client.CharacterAdded:Wait()
+local UserId = Client.UserId
+local PlayerGui = Client.PlayerGui
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+local Backpack = Client:WaitForChild("Backpack")
+
+local game = game
+if typeof(game) ~= "Instance" then
+	game = workspace.Parent
+end
+
+Client.CharacterAdded:Connect(function(newCharacter)
+	Character = newCharacter
+	Humanoid = Character:WaitForChild("Humanoid")
+	RootPart = Character:WaitForChild("HumanoidRootPart")
+	Backpack = Client:WaitForChild("Backpack")
+end)
+
+local QuestData = require(Rep:FindFirstChild('Quests'))
+local GuideModule = require(Rep:FindFirstChild('GuideModule')) 
+local Enemies = cloneref(workspace:FindFirstChild('Enemies'))
+
+local function Teleport(targetCF)
+	local startCF = Character:GetPivot()
+	local startPos = startCF.Position
+	local targetPos = targetCF.Position
+	local dir = (targetPos - startPos)
+	local dist = dir.Magnitude
+	if dist == 0 then Character:PivotTo(targetCF) return end
+	dir = dir.Unit
+	local movedDist = 0
+	local speed = 250
+	local startTime = tick()
+	while movedDist < dist and not _G['StopTween'] do
+		local elapsed = tick() - startTime
+		movedDist = math.min(elapsed * speed, dist)
+		local pos = startPos + dir * movedDist
+		Character:PivotTo(CFrame.new(pos) * (targetCF - targetCF.Position))
+		task.wait()
+	end
+	Character:PivotTo(targetCF)
+end
+
+local function ForceStopTween()
+	_G['StopTween'] = true
+	task.wait()
+	_G['StopTween'] = false
+end
+
+local function Action(s)
+	return Rep:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(table.unpack(s))
+end
+
+local function GetDistanceRoot(Objective)
+	if typeof(Objective) == "Instance" then
+		if Objective:IsA("BasePart") then
+			return (Objective.Position - RootPart.Position).Magnitude
+        elseif Objective:IsA('Model') then 
+            return (Objective:GetPivot().Position - RootPart.Position).Magnitude
+		else
+			return 0
+		end
+	elseif typeof(Objective) == "Vector3" then
+		return (Objective - RootPart.Position).Magnitude
+	elseif typeof(Objective) == "CFrame" then 
+		return (Objective.Position - RootPart.Position).Magnitude
+	end
+	return 0
+end;
+
+local function GetQuest()
+	local quest,dist,sub,s,nm = nil,-math.huge,nil,nil,nil
+	for i,v in pairs(QuestData) do
+		for s,x in pairs(v) do 
+			if x.LevelReq then 
+                if Client.Data.Level.Value >= x.LevelReq then
+                    if x.LevelReq > dist then 
+                        dist = x.LevelReq
+                        quest = x
+						sub = i
+						key = s
+                    end
+                end
+			end
+		end
+	end
+
+	local namemon = next(quest.Task)
+
+	if not nm then 
+		for i, v in pairs(Workspace._WorldOrigin.EnemySpawns:GetChildren()) do
+			if string.find(v.Name, tostring(namemon)) then
+				nm = v.CFrame
+			end
+		end
+	end
+
+	return {
+		[1] = quest,[2]=key,[3] = dist,[4] = GuideModule.GetNearestNPC(GuideModule, Client.Character.HumanoidRootPart.Position, Client.Data.Level.Value)[1],[5] = sub,[6]=d,[7]=nm,[8]=namemon
+	}
+end
+
+local function AutoFarm(s)
+	if not s then ForceStopTween() return end
+
+	if GetQuest()[1] then 
+
+		if Client.PlayerGui.Main.Quest.Visible and not string.find(Client.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text, tostring(tostring(next(GetQuest()[1].Task)))) then
+			Action({'AbandonQuest'})
+		end
+
+		if Client.PlayerGui.Main.Quest.Visible then
+			if Enemies:FindFirstChild(GetQuest()[8]) then
+				for i, v in pairs(Enemies:GetChildren()) do
+					if v.Name == GetQuest()[8] and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+						repeat task.wait()
+							Teleport(v.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
+						until not v.Parent or v.Humanoid.Health <= 0 or not Client.PlayerGui.Main.Quest.Visible or not s
+					end
+				end
+			else
+				if GetQuest()[7] then 
+					Teleport(GetQuest()[7])
+				end
+			end
+		else 
+			if GetQuest()[4] then
+				local npcPos = CFrame.new(GetQuest()[4])
+				if GetDistanceRoot(npcPos) <= 4 then
+					Action({'StartQuest', GetQuest()[5], GetQuest()[2]})
+				else 
+					Teleport(npcPos)
+				end
+			end
+		end
+	end
+end;
+
+task.spawn(function()
+	while task.wait() do
+		pcall(AutoFarm, getgenv().Auto_Farm)
+	end
+end)
+
