@@ -40,8 +40,8 @@ local function CheckLevel()
         NM = "Bandit"
         NQ = "BanditQuest1"
         Number = 1
-        PQ = CFrame.new(1059, 16, 1552)
-        WM = CFrame.new(1060, 16, 1555)
+        PQ = CFrame.new(1059.37195, 15.4495068, 1550.4231, 0.939700544, -0, -0.341998369, 0, 1, -0, 0.341998369, 0, 0.939700544)
+        WM = CFrame.new(1093.886962890625, 74.5149154663086, 1618.773193359375)
 
     elseif lv <= 3 then
         NM = "Monkey"
