@@ -1,0 +1,783 @@
+local Remotes = game.ReplicatedStorage:WaitForChild("Remotes")
+local RunService = game:GetService("RunService")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+
+-- Set team only if player has no character yet
+if not LocalPlayer.Character then
+    if _G.Marine == nil and _G.Pirate == nil then
+        if Remotes:FindFirstChild("CommF_") then
+            Remotes.CommF_:InvokeServer("SetTeam", "Pirates")
+        else
+            warn("RemoteFunction 'CommF_' not found!")
+        end
+    end
+end
+
+-- Character references
+local hrp = LocalPlayer.Character and LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+LocalPlayer.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+if not hrp then
+    LocalPlayer.CharacterAdded:Wait()
+    hrp = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+end
+
+
+-- Map positions
+local map = {
+    Pirates_starter = Vector3.new(1007.36, 98.69, 1295.56),--1
+    Middle_Town = Vector3.new(-765.64, 70.88, 1682.41),
+    Jungle = Vector3.new(-1548.6, 145.4, -110.1),--3
+    Colosseum = Vector3.new(-1695, 81.213, -3086.8),
+    ice_mountain = Vector3.new(1068.2318115234375, 133.94224548339844, -1416.373291015625),--5
+    Pirate = Vector3.new(-1236.556640625, 144.9730987548828, 3995.726806640625),
+    dessert = Vector3.new(1330.914794921875, 100.130859375, 4491.53759765625),
+    Fountain_city = Vector3.new(5098.13671875, 89.31230926513672, 4230.861328125),
+    Marine_starter = Vector3.new(-2647.275634765625, 75.15589904785156, 2126.87451171875),
+    Marine_fortress = Vector3.new(-4930.2861328125, 197.26966857910156, 4317.64501953125),
+}
+
+-- Data
+local level = game:GetService("Players").LocalPlayer.Data.Level.Value
+local QuestUI = game:GetService("Players").LocalPlayer.PlayerGui.Main.Quest
+-- Tween variables
+local tweenConnection
+local isTweenEnabled = false
+local currentTarget = nil
+local speed = 195
+local bodyVelocity
+
+-- Damage Aura Settings
+local DamageAuraEnabled = false
+local DamageAuraDistance = 40
+local lastAttackTime = 0
+
+-- Farm settings
+local bring_mob = true
+local auto_buso = true
+local distance = 30
+local AutoFarmEnabled = false
+local BringMobDistance = 200 -- Maximum distance to bring mobs
+
+-- Highlight
+local highlight
+function enabled_highlight()
+    if highlight then highlight:Destroy() end
+    highlight = Instance.new("Highlight")
+    highlight.Parent = LocalPlayer.Character
+    highlight.FillColor = Color3.fromRGB(0, 255, 253)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+    highlight.OutlineTransparency = 0
+end
+
+function disable_highlight()
+    if highlight then
+        highlight:Destroy()
+        highlight = nil
+    end
+end
+
+function enabled_noclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if part.Name == "LowerTorso" or part.Name == "UpperTorso" or part.Name == "HumanoidRootPart" then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+function disable_noclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if part.Name == "LowerTorso" or part.Name == "UpperTorso" or part.Name == "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+-- Create BodyVelocity for flying
+function createFlightObjects()
+    if bodyVelocity then bodyVelocity:Destroy() end
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Name = "You're so crazy, manipulate me Fucking chase me, fucking break_ me You're my everything, please just rape me"
+    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Velocity = Vector3.zero
+    bodyVelocity.Parent = hrp
+end
+
+function destroyFlightObjects()
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+end
+
+-- Main tween loop
+function startTweenLoop()
+    if tweenConnection then return end
+    
+    createFlightObjects()
+    
+    tweenConnection = RunService.Heartbeat:Connect(function(dt)
+        if not isTweenEnabled or not hrp or not hrp.Parent then
+            if bodyVelocity then bodyVelocity.Velocity = Vector3.zero end
+            return
+        end
+
+        if not currentTarget then
+            if bodyVelocity then bodyVelocity.Velocity = Vector3.zero end
+            return
+        end
+
+        local direction = currentTarget - hrp.Position
+        local distanceToTarget = direction.Magnitude
+
+        -- Warp if close
+        if distanceToTarget < 130 then
+            hrp.CFrame = CFrame.new(currentTarget)
+            if bodyVelocity then bodyVelocity.Velocity = Vector3.zero end
+            return
+        end
+
+        -- Move with velocity
+        if bodyVelocity then
+            local moveDist = math.min(speed * dt, distanceToTarget)
+            local newPos = hrp.Position + direction.Unit * moveDist
+            hrp.CFrame = CFrame.lookAt(newPos, currentTarget)
+            bodyVelocity.Velocity = direction.Unit * speed
+        end
+    end)
+end
+
+function stopTweenLoop()
+    isTweenEnabled = false
+    currentTarget = nil
+    FollowMob = nil
+    destroyFlightObjects()
+    disable_highlight()
+    if tweenConnection then
+        tweenConnection:Disconnect()
+        tweenConnection = nil
+    end
+end
+
+function setTarget(targetPos)
+    currentTarget = targetPos
+end
+
+function equip_weapon(type_of_weapon)
+    local char = LocalPlayer.Character
+    local backpack = LocalPlayer.Backpack
+    if not char then return end
+    local tool_to_equip
+    local held_tool = char:FindFirstChildOfClass("Tool")
+    if held_tool and held_tool.ToolTip == type_of_weapon then
+        tool_to_equip = held_tool
+    else
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and tool.ToolTip == type_of_weapon then
+                tool_to_equip = tool
+                char.Humanoid:EquipTool(tool)
+                break
+            end
+        end
+    end
+    current_weapon = tool_to_equip
+end
+
+local levelData = {
+    {
+        minLevel = 1,
+        maxLevel = 9,
+        quest = "BanditQuest1",
+        questNum = 1,
+        mob = "Bandit",
+        waitPos = Vector3.new(1043.4, 69.14, 1575.71)
+    },
+    {
+        minLevel = 10,
+        maxLevel = 14,
+        quest = "JungleQuest",
+        questNum = 1,
+        mob = "Monkey",
+        waitPos = Vector3.new(-1568, 75, 152)
+    },
+    {
+        minLevel = 15,
+        maxLevel = 29,
+        quest = "JungleQuest",
+        questNum = 2,
+        mob = "Gorilla",
+        waitPos = Vector3.new(-1226, 46, -504)
+    },
+    {
+        minLevel = 30,
+        maxLevel = 39,
+        quest = "BuggyQuest1",
+        questNum = 1,
+        mob = "Pirate",
+        waitPos = Vector3.new(-1100, 30, 4000)
+    },
+    {
+        minLevel = 40,
+        maxLevel = 59,
+        quest = "BuggyQuest1",
+        questNum = 2,
+        mob = "Brute",
+        waitPos = Vector3.new(-1150.0858154296875, 130.3016815185547, 4165.21240234375)
+    }
+}
+
+function getCurrentLevelData()
+    local currentLevel = game:GetService("Players").LocalPlayer.Data.Level.Value
+    for _, data in ipairs(levelData) do
+        if currentLevel >= data.minLevel and currentLevel <= data.maxLevel then
+            return data
+        end
+    end
+    return nil
+end
+
+local FollowMobs = {}
+
+function BringMob(target)
+    if target and target:FindFirstChild("HumanoidRootPart") then
+        local hrp = target.HumanoidRootPart
+        if not hrp:FindFirstChild("BringBV") then
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "BringBV"
+            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            bv.Velocity = Vector3.zero
+            bv.Parent = hrp
+        end
+        table.insert(FollowMobs, target)
+    end
+end
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local playerHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not playerHrp then return end
+
+    for i = #FollowMobs, 1, -1 do
+        local mob = FollowMobs[i]
+        if mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") then
+            local hrp = mob.HumanoidRootPart
+            local bv = hrp:FindFirstChild("BringBV")
+            if bv then
+                local targetPos = playerHrp.Position + Vector3.new(0, -distance, 0)
+                local direction = targetPos - hrp.Position
+                local distance = direction.Magnitude
+
+                if distance > 1 then
+                    local speed = math.min(distance * 2, 300)
+                    bv.Velocity = direction.Unit * speed
+                else
+                    bv.Velocity = Vector3.zero
+                end
+            end
+        else
+            table.remove(FollowMobs, i)
+        end
+    end
+end)
+
+function ReleaseMobs()
+    for _, mob in ipairs(FollowMobs) do
+        local hrp = mob:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local bv = hrp:FindFirstChild("BringBV")
+            if bv then bv:Destroy() end
+        end
+    end
+    FollowMobs = {}
+end
+
+RunService.Heartbeat:Connect(function(dt)
+    if LocalPlayer.Character then
+        local playerHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if playerHrp then
+            for i = #FollowMobs, 1, -1 do
+                local mob = FollowMobs[i]
+                if mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local bv = mob.HumanoidRootPart:FindFirstChild("BringBV")
+                    if bv then
+                        local direction = (playerHrp.Position - Vector3.new(0, distance, 0) - mob.HumanoidRootPart.Position)
+                        local mobDistance = direction.Magnitude
+                        
+                        -- Slower and smoother velocity, max speed 100
+                        local velocityMagnitude = math.min(mobDistance * 2, 300)
+                        bv.Velocity = direction.Unit * velocityMagnitude
+                    end
+                else
+                    -- Remove dead or invalid mobs
+                    table.remove(FollowMobs, i)
+                end
+            end
+        end
+    end
+end)
+
+-- Enhanced Damage Aura with better reliability
+function DamageAura()
+    if not DamageAuraEnabled then return end
+    
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local playerHrp = char.HumanoidRootPart
+    local currentTime = tick()
+    local randomDelay = math.random(1, 30) / 100
+
+    if currentTime - lastAttackTime < randomDelay then
+        return
+    end
+
+    local targetsInRange = {}
+
+    task.spawn(function()
+    for _, mob in pairs(workspace.Enemies:GetChildren()) do
+            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and mob:FindFirstChild("HumanoidRootPart") then
+                local dist = (playerHrp.Position - mob.HumanoidRootPart.Position).Magnitude
+                if dist <= DamageAuraDistance then
+                    table.insert(targetsInRange, {target = mob, dist = dist})
+                end
+            end
+        end
+    end)
+    task.spawn(function()
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if player.Character.Humanoid.Health > 0 then
+                    local dist = (playerHrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if dist <= DamageAuraDistance then
+                        table.insert(targetsInRange, {target = player.Character, dist = dist})
+                    end
+                end
+            end
+        end
+    end)
+    if #targetsInRange > 0 then
+        lastAttackTime = currentTime
+        
+        pcall(function()
+            game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterAttack"]:FireServer(0.5)
+        end)
+       
+        table.sort(targetsInRange, function(a, b)
+            return a.dist < b.dist
+        end)
+
+        for _, data in ipairs(targetsInRange) do
+            local target = data.target
+            task.spawn(function()
+                local bodyParts = {"HumanoidRootPart", "Head"}
+                for _, partName in ipairs(bodyParts) do
+                    local part = target:FindFirstChild(partName)
+                    if part then
+                        game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterHit"]:FireServer(
+                            part,
+                            {playerHrp.Position},
+                            tostring(math.random(100000, 999999)) .. "-" .. tostring(tick())
+                        )
+                    end
+                end
+            end)
+        end
+    end
+end
+
+-- Damage Aura Loop with faster check rate
+task.spawn(function()
+    while true do
+        task.wait(0.03)
+        if DamageAuraEnabled then
+            local success, err = pcall(DamageAura)
+            if not success then
+                warn("Error in DamageAura: " .. tostring(err))
+            end
+        end
+    end
+end)
+
+function Auto_Farm(tool)
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local held_tool = char:FindFirstChildOfClass("Tool")
+    if not held_tool or held_tool.ToolTip ~= tool then
+        equip_weapon(tool)
+    end
+
+    if auto_buso then
+        if char and not char:FindFirstChild("HasBuso") then
+            Remotes.CommF_:InvokeServer("Buso")
+        end
+    end
+
+    local currentData = getCurrentLevelData()
+    if not currentData then 
+        warn("No level data found for level: " .. level)
+        return
+    end
+
+    -- Clean up dead mobs from FollowMobs table
+    for i = #FollowMobs, 1, -1 do
+        local mob = FollowMobs[i]
+        if not mob or not mob.Parent or not mob:FindFirstChild("Humanoid") or mob.Humanoid.Health <= 0 then
+            table.remove(FollowMobs, i)
+        end
+    end
+
+    local target = nil
+    local allMobs = {}
+
+    -- Collect all alive mobs
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        if v.Name == currentData.mob and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+            table.insert(allMobs, v)
+            
+            if bring_mob then
+                if not table.find(FollowMobs, v) then
+                    BringMob(v)
+                end
+            end
+        end
+    end
+
+    -- Select target (prefer alive mobs)
+    if #allMobs > 0 then
+        target = allMobs[1]
+    end
+
+    if target then
+        setTarget(target.HumanoidRootPart.Position + Vector3.new(0, distance, 0))
+        if bring_mob then
+            FollowMob = target
+        end
+        if not isTweenEnabled then
+            startTweenLoop()
+            isTweenEnabled = true
+            enabled_highlight()
+        end
+    else
+        setTarget(currentData.waitPos)
+        FollowMob = nil
+        if not isTweenEnabled then
+            startTweenLoop()
+            isTweenEnabled = true
+            enabled_highlight()
+        end
+    end
+end
+
+function AutoQuest()
+    local currentData = getCurrentLevelData()
+    if not currentData then return end
+    
+    return game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(
+        "StartQuest",
+        currentData.quest,
+        currentData.questNum
+    )
+end
+
+--[[
+local auto_stored = false
+
+function AutoStored_Fruit()
+    local Backpack = LocalPlayer.Backpack
+    local Char = LocalPlayer.Character
+    if not Char or Backpack then return end
+
+    for _, v in pairs(Backpack:GetDescendants()) do
+        if v.Name == "Fruit" and v.Parent:IsA("Tool") then
+
+        end
+    end
+end
+]]
+
+-- Rayfield GUI
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+   Name = "Chaos Hub",
+   LoadingTitle = "Loading...",
+   LoadingSubtitle = "Blox Fruit",
+   ConfigurationSaving = {Enabled = true, FolderName = nil, FileName = "Chaos Hub_BF1"},
+   Discord = {Enabled = false, Invite = "noinvitelink", RememberJoins = true}
+})
+
+local Main = Window:CreateTab("Main","axe")
+local stats = Window:CreateTab("Stats","droplets")
+local Tab = Window:CreateTab("Teleport", "eye")
+local misc = Window:CreateTab("Misc","folder-kanban")
+local setting_Tab = Window:CreateTab("Settings","settings")
+
+local current_pos = map.Pirates_starter
+local selected_Tool = "Melee"
+
+-- Settings
+setting_Tab:CreateSlider({
+    Name = "Tween speed",
+    Range = {0, 500},
+    Increment = 5,
+    Suffix = "Speed (df = 195)",
+    CurrentValue = speed,
+    Flag = "settings_tween_speed",
+    Callback = function(Value)
+        speed = Value
+    end
+})
+
+setting_Tab:CreateSlider({
+    Name = "Farm Y Distance",
+    Range = {0, 200},
+    Increment = 5,
+    Suffix = "Distance (df = 30)",
+    CurrentValue = 30,
+    Flag = "farm_y_distance",
+    Callback = function(Value)
+        distance = Value
+    end
+})
+
+setting_Tab:CreateSlider({
+    Name = "Damage Aura Distance",
+    Range = {0, 200},
+    Increment = 5,
+    Suffix = "Distance (df = 40)",
+    CurrentValue = 30,
+    Flag = "damage_aura_distance",
+    Callback = function(Value)
+        DamageAuraDistance = Value
+    end
+})
+
+setting_Tab:CreateSlider({
+    Name = "Bring Mob Distance",
+    Range = {50, 300},
+    Increment = 10,
+    Suffix = "Studs (df = 100)",
+    CurrentValue = 100,
+    Flag = "bring_mob_distance",
+    Callback = function(Value)
+        BringMobDistance = Value
+    end
+})
+
+setting_Tab:CreateToggle({
+    Name = "Enable Damage Aura",
+    CurrentValue = false,
+    Callback = function(Value)
+        DamageAuraEnabled = Value
+    end
+})
+
+setting_Tab:CreateToggle({
+    Name = "Enable Bring Mob",
+    CurrentValue = true,
+    Callback = function(Value)
+        bring_mob = Value
+    end
+})
+
+setting_Tab:CreateToggle({
+    Name = "Enable auto buso",
+    CurrentValue = true,
+    Callback = function(Value)
+        auto_buso = Value
+    end
+})
+
+local statsToAdd = {
+    "Melee",
+    "Defense",
+    "Sword",
+    "Gun",
+    "Demon Fruit"
+}
+
+local auto_stats = false
+
+stats:CreateToggle({
+    Name = "Auto Stats",
+    CurrentValue = false,
+    Callback = function(Value)
+        auto_stats = Value
+        if auto_stats then
+            task.spawn(function()
+                while auto_stats do
+                    task.wait(0.1)
+                    for _, stat in ipairs(statsToAdd) do
+                        pcall(function()
+                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", stat, 1)
+                        end)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+stats:CreateDropdown({
+    Name = "Select Stat",
+    Options = {"Melee", "Defense", "Sword", "Gun", "Demon Fruit"},
+    CurrentOption = {"Melee"},
+    MultipleOptions = true,
+    Callback = function(Value)
+        statsToAdd = Value
+    end
+})
+
+
+local succes, ok = pcall(function()
+
+    local character = LocalPlayer.Character
+
+    local Dashlength = character:GetAttribute("DashLength")
+    local WaterWalking = character:GetAttribute("WaterWalking")
+
+    misc:CreateSlider({
+        Name = "Dash length",
+        Range = {16, 1000},
+        Increment = 5,
+        Suffix = "p/s",
+        CurrentValue = Dashlength or 3,
+        Flag = "Dash_length",
+        Callback = function(Value)
+            character:SetAttribute("DashLength", Value)
+        end
+    })
+
+    misc:CreateToggle({
+        Name = "Walking On Water",
+        CurrentValue = WaterWalking or false,
+        Callback = function(Value)
+            character:SetAttribute("WaterWalking", Value)
+        end
+    })
+
+    misc:CreateButton({
+        Name = "Buy Double jump",
+        Callback = function()
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("BuyHaki","Geppo")
+        end
+    })
+
+    misc:CreateButton({
+        Name = "Buy Aura(Haki aura)",
+        Callback = function()
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("BuyHaki","Buso")
+        end
+    })
+    misc:CreateButton({
+        Name = "Buy Flash step",
+        Callback = function()
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("BuyHaki","Soru")
+        end
+    })
+end)
+
+
+-- Main Tab
+Main:CreateToggle({
+    Name = "Auto Farm",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            AutoFarmEnabled = true
+            DamageAuraEnabled = true
+            stopTweenLoop()
+            disable_noclip()
+            task.spawn(function()
+                while AutoFarmEnabled do
+                    task.wait(0.1)
+                    equip_weapon(selected_Tool)
+                    
+                    local data = getCurrentLevelData()
+                    local questText = game:GetService("Players").LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+
+                    if data and data.mob then
+                        if not string.find(questText, data.mob) then
+                    AutoQuest()
+                    end
+                    else
+                        warn("data or data.mob is nil")
+                    end
+                    --[[
+                    if not string.match(questText, "%f[%a]"..data.mob.."%f[%A]") then
+                        AutoQuest()
+                    end
+                    ]]
+                    enabled_noclip()
+                    Auto_Farm(selected_Tool)
+                end
+                
+                ReleaseMobs()
+                stopTweenLoop()
+                disable_noclip()
+            end)
+        else
+            AutoFarmEnabled = false
+            DamageAuraEnabled = false
+        end
+    end
+})
+
+Main:CreateDropdown({
+    Name = "Select Tool",
+    Options = {"Melee", "Blox Fruit", "Sword"},
+    CurrentOption = {"Melee"},
+    MultipleOptions = false,
+    Callback = function(Value)
+        selected_Tool = Value[1]
+    end
+})
+
+-- Teleport Tab
+Tab:CreateDropdown({
+    Name = "Select Position",
+    Options = {"Pirates_starter","Middle_Town","Jungle","Colosseum","ice_mountain","Pirate","dessert","Fountain_city","Marine_starter","Marine_fortress"},
+    CurrentOption = {"Pirates_starter"},
+    MultipleOptions = false,
+    Callback = function(Value)
+        local selected = Value[1]  
+        current_pos = map[selected]
+
+        if isTweenEnabled then
+            setTarget(current_pos)
+        end
+    end
+})
+
+Tab:CreateToggle({
+    Name = "Enable Tween",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            isTweenEnabled = true
+            setTarget(current_pos)
+            startTweenLoop()
+            enabled_highlight()
+        else
+            stopTweenLoop()
+        end
+    end
+})
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if AutoFarmEnabled then
+        createFlightObjects()
+        enabled_highlight()
+        enabled_noclip()
+    end
+end)
