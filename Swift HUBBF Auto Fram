@@ -1,19 +1,35 @@
---// SERVICES
+--// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
---// PLAYER
+--// Player
 local LP = Players.LocalPlayer
 
---// SETTINGS
-_G.AutoFarm = true
+--// Settings
+_G.AutoFarm = true       -- เปิด/ปิดระบบฟาร์ม+ตีออโต้
 local TweenSpeed = 300
-local HeadOffset = CFrame.new(0, 19, 0)
+local HeadOffset = CFrame.new(0, 20, 0)
 local ATTACK_RANGE = 25
-local MIN_TWEEN_DIST = 20 -- ถ้าใกล้กว่านี้จะไม่ Tween
 
---// LEVEL CHECK
+--// Tween function
+local function TweenTo(pos)
+    local hrp = LP.Character:WaitForChild("HumanoidRootPart")
+    local distance = (hrp.Position - pos.Position).Magnitude
+    local tweenInfo = TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = pos})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+--// TP function
+local function TPTo(pos)
+    local hrp = LP.Character:WaitForChild("HumanoidRootPart")
+    hrp.CFrame = pos
+end
+
+--// Check level and set target
+local NM, NQ, Number, PQ
 local function CheckLevel()
     local lv = LP.Data.Level.Value
 
@@ -37,107 +53,72 @@ local function CheckLevel()
     end
 end
 
---// QUEST CHECK
+--// Check if player has quest
 local function HasQuest()
     local gui = LP.PlayerGui.Main
-    return gui.Quest.Visible 
-        and gui.Quest.Container.QuestTitle.Title.Text ~= "NQ"
+    return gui.Quest.Visible and gui.Quest.Container.QuestTitle.Title.Text ~= "NQ"
 end
 
---// TWEEN MOVE
-local function TweenTo(pos)
-    local hrp = LP.Character:WaitForChild("HumanoidRootPart")
-    local distance = (hrp.Position - pos.Position).Magnitude
-    if distance < MIN_TWEEN_DIST then return end -- ถ้าใกล้เกินไม่ Tween
+--// AutoAttack function
+local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
+local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
-    local info = TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, info, { CFrame = pos })
-    tween:Play()
-    tween.Completed:Wait()
-end
-
---// INSTANT TP (ON MONSTER HEAD)
-local function TPTo(pos)
-    local hrp = LP.Character:WaitForChild("HumanoidRootPart")
-    hrp.CFrame = pos
-end
-
---// AUTO ATTACK (AOE)
-local function AutoAttack()
-    if not _G.AutoFarm then return end
-
+local function AutoAttack(mob)
     local char = LP.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
 
-    for _, mob in pairs(workspace.Enemies:GetChildren()) do
-        if mob.Name == NM
-        and mob:FindFirstChild("HumanoidRootPart")
-        and mob:FindFirstChild("Humanoid")
-        and mob.Humanoid.Health > 0 then
-
-            local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
-            if dist <= ATTACK_RANGE then
-                ReplicatedStorage.Modules.Net["RE/RegisterAttack"]:FireServer(0.01)
-                ReplicatedStorage.Modules.Net["RE/RegisterHit"]:FireServer(
-                    mob.HumanoidRootPart,
-                    {},
-                    "002a98fe"
-                )
-                task.wait(0.02)
-            end
-        end
+    local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+    if dist <= ATTACK_RANGE then
+        RegisterAttack:FireServer(0.01)
+        RegisterHit:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
+        task.wait(0.05)
     end
 end
 
---// MAIN LOOP
+--// Main AutoFarm loop
 task.spawn(function()
-    while task.wait(0.15) do
+    while task.wait(0.2) do
         if not _G.AutoFarm then continue end
 
         pcall(function()
             CheckLevel()
 
-            -- ถ้าไม่มี Quest → ไปเอา Quest ใหม่
+            -- ถ้าเควสหาย → ไปเอาเควสใหม่
             if not HasQuest() then
-                TweenTo(PQ) -- Tween ไป NPC รับเควส
+                TweenTo(PQ)
                 task.wait(0.3)
-
-                ReplicatedStorage.Remotes.CommF_:InvokeServer(
-                    "StartQuest",
-                    NQ,
-                    Number
-                )
-                return
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(NQ, Number)
+                task.wait(0.5)
             end
 
-            -- ฟาร์มมอนสเตอร์
-            for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if not HasQuest() then return end
-
-                local root = v:FindFirstChild("HumanoidRootPart")
-                local hum = v:FindFirstChildOfClass("Humanoid")
-
-                if root and hum and hum.Health > 0 and v.Name == NM then
-
-                    local hrpPos = LP.Character.HumanoidRootPart.Position
-                    local mobDist = (root.Position - hrpPos).Magnitude
-
-                    -- Tween ไปหามอน ถ้าไกล
-                    if mobDist > MIN_TWEEN_DIST then
-                        TweenTo(root.CFrame * HeadOffset)
-                    end
-
-                    -- TP บนหัวมอน + Auto Attack
-                    repeat
-                        task.wait()
-                        if not HasQuest() then return end
-
-                        TPTo(root.CFrame * HeadOffset)
-                        AutoAttack()
-
-                    until hum.Health <= 0
+            -- เก็บมอนเป้าหมายทั้งหมด
+            local targets = {}
+            for _, mob in pairs(workspace.Enemies:GetChildren()) do
+                if mob.Name == NM
+                   and mob:FindFirstChild("HumanoidRootPart")
+                   and mob:FindFirstChildOfClass("Humanoid")
+                   and mob.Humanoid.Health > 0 then
+                    table.insert(targets, mob)
                 end
+            end
+
+            -- Loop ตีทุกตัว
+            for _, mob in pairs(targets) do
+                if not HasQuest() then break end
+                local root = mob.HumanoidRootPart
+
+                if (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude > 15 then
+                    TPTo(root.CFrame * HeadOffset)
+                end
+
+                repeat
+                    task.wait(0.01)
+                    if not HasQuest() then break end
+                    TPTo(root.CFrame * HeadOffset)
+                    AutoAttack(mob)
+                until mob.Humanoid.Health <= 0
             end
         end)
     end
