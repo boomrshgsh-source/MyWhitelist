@@ -108,3 +108,47 @@ task.spawn(function()
         end)
     end
 end)
+
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
+
+local ATTACK_RANGE = 25
+local TARGET_NAME = "NM"
+
+local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
+local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
+
+local function AutoAttack()
+    if not _G.AutoFarm then return end
+
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    for _, mob in pairs(workspace.Enemies:GetChildren()) do
+        if mob.Name == TARGET_NAME
+        and mob:FindFirstChild("HumanoidRootPart")
+        and mob:FindFirstChild("Humanoid")
+        and mob.Humanoid.Health > 0 then
+
+            local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if dist <= ATTACK_RANGE then
+                RegisterAttack:FireServer(0.01)
+                RegisterHit:FireServer(
+                    mob.HumanoidRootPart,
+                    {},
+                    "002a98fe"
+                )
+                task.wait(0.01) -- เว้นนิดให้เซิร์ฟเวอร์รับ
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.05) do
+        pcall(AutoAttack)
+    end
+end)
