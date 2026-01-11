@@ -115,40 +115,28 @@ end)
 
 -- เรียก CheckLevel() ครั้งแรกตอนเริ่ม
 CheckLevel()
-
---// AutoAttack แบบวนทุกตัวในระยะเร็วที่สุด
+--// AutoAttack วนตีทุกตัวใน workspace.Enemies (ไม่สนระยะ)
 local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
 local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
 task.spawn(function()
-    while task.wait(0.01) do -- loop เร็วที่สุด
+    while task.wait(0.01) do
         if not _G.AutoFarm then continue end
+
         pcall(function()
-            local char = LP.Character
-            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-            local hrp = char.HumanoidRootPart
-
-            local mobsInRange = {}
             for _, mob in pairs(workspace.Enemies:GetChildren()) do
-                if mob.Name == NM 
-                and mob:FindFirstChild("HumanoidRootPart") 
-                and mob:FindFirstChildOfClass("Humanoid") 
-                and mob.Humanoid.Health > 0 then
-                    local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
-                    if dist <= ATTACK_RANGE then
-                        table.insert(mobsInRange, mob)
-                    end
-                end
-            end
+                local root = mob:FindFirstChild("HumanoidRootPart")
+                local hum = mob:FindFirstChildOfClass("Humanoid")
 
-            -- ยิงทุกตัว
-            for _, mob in pairs(mobsInRange) do
-                RegisterAttack:FireServer(0.01)
-                RegisterHit:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
+                if root and hum and hum.Health > 0 then
+                    RegisterAttack:FireServer(0.01)
+                    RegisterHit:FireServer(root, {}, "002a98fe")
+                end
             end
         end)
     end
 end)
+
 
 --// Services
 local Players = game:GetService("Players")
@@ -158,42 +146,61 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local EnemiesFolder = Workspace:WaitForChild("Enemies")
 
--- ฟังก์ชันรวมมอนตาม NM
-local function MergeNM()
+--// BringMob / MergeMob แบบนิ่ง
+local function BringMob()
     local mobs = {}
 
     for _, mob in pairs(EnemiesFolder:GetChildren()) do
-        if mob.Name == NM 
-        and mob:FindFirstChild("HumanoidRootPart") 
-        and mob:FindFirstChildOfClass("Humanoid") 
-        and mob.Humanoid.Health > 0 then
+        local hrp = mob:FindFirstChild("HumanoidRootPart")
+        local hum = mob:FindFirstChildOfClass("Humanoid")
+
+        if hrp and hum and hum.Health > 0 then
             table.insert(mobs, mob)
         end
     end
 
     if #mobs <= 1 then return end
 
-    local base = mobs[1].HumanoidRootPart.Position
+    -- ใช้ตำแหน่งมอนตัวแรกเป็นฐาน
+    local baseHRP = mobs[1].HumanoidRootPart
+    local baseCF = baseHRP.CFrame
 
     for i = 2, #mobs do
         local mob = mobs[i]
-        mob.HumanoidRootPart.CFrame = CFrame.new(base)
-        mob.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
-        mob.HumanoidRootPart.CanCollide = false
-        mob.HumanoidRootPart.Transparency = 1
-        mob.Humanoid.WalkSpeed = 0
-        mob.Humanoid.JumpPower = 0
+        local hrp = mob.HumanoidRootPart
+        local hum = mob.Humanoid
+
+        -- ล็อกตำแหน่ง
+        hrp.CFrame = baseCF
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+
+        -- กันกระเด้ง
+        hrp.CanCollide = false
+        hrp.Massless = true
+        hrp.Size = Vector3.new(60,60,60)
+        hrp.Transparency = 1
+
+        -- หยุดการเคลื่อนไหว
+        hum.WalkSpeed = 0
+        hum.JumpPower = 0
+        hum.AutoRotate = false
     end
 
-    mobs[1].HumanoidRootPart.Size = Vector3.new(60, 60, 60)
-    mobs[1].HumanoidRootPart.CanCollide = false
-    mobs[1].HumanoidRootPart.Transparency = 1
+    -- ตัวฐานก็ล็อกเหมือนกัน
+    baseHRP.CanCollide = false
+    baseHRP.Massless = true
+    baseHRP.Size = Vector3.new(60,60,60)
+    baseHRP.Transparency = 1
     mobs[1].Humanoid.WalkSpeed = 0
     mobs[1].Humanoid.JumpPower = 0
+    mobs[1].Humanoid.AutoRotate = false
 
+    -- ขยาย SimulationRadius
     if sethiddenproperty then
         sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
     end
 end
 
-RunService.Heartbeat:Connect(MergeNM)
+-- รันทุกเฟรม
+RunService.Heartbeat:Connect(BringMob)
