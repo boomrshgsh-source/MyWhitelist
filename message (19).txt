@@ -149,3 +149,49 @@ task.spawn(function()
 	end
 end)
 
+
+-- ============ AUTO BRING & KILL ============
+
+local RS = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+getgenv().AutoKill = true
+
+local function GetQuestMob()
+    local q = GetQuest()
+    if q and q[8] then return q[8] end
+end
+
+-- รวมมอน
+task.spawn(function()
+    while task.wait(0.1) do
+        if not getgenv().AutoKill then continue end
+        local name = GetQuestMob()
+        if not name then continue end
+
+        for _, mob in pairs(workspace.Enemies:GetChildren()) do
+            if mob.Name == name and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
+                mob.HumanoidRootPart.CFrame = LP.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-5)
+                mob.Humanoid.WalkSpeed = 0
+                mob.Humanoid.JumpPower = 0
+            end
+        end
+    end
+end)
+
+-- ยิงแรง
+task.spawn(function()
+    while task.wait(0.05) do
+        if not getgenv().AutoKill then continue end
+        local name = GetQuestMob()
+        if not name then continue end
+
+        for _, mob in pairs(workspace.Enemies:GetChildren()) do
+            if mob.Name == name and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
+                RS.Modules.Net["RE/RegisterAttack"]:FireServer(0.1)
+                RS.Modules.Net["RE/RegisterHit"]:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
+            end
+        end
+    end
+end)
