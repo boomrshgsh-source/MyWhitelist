@@ -1,13 +1,10 @@
 --// Services
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 --// Player
 local LP = Players.LocalPlayer
-local EnemiesFolder = Workspace:WaitForChild("Enemies")
 
 --// Settings
 _G.AutoFarm = true
@@ -20,6 +17,7 @@ local function TweenTo(pos)
     local hrp = LP.Character:WaitForChild("HumanoidRootPart")
     local distance = (hrp.Position - pos.Position).Magnitude
     local tweenInfo = TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear)
+
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = pos})
     tween:Play()
     tween.Completed:Wait()
@@ -36,7 +34,7 @@ local NM, NQ, Number, PQ, WM
 local function CheckLevel()
     local lv = LP.Data.Level.Value
 
-    if lv <= 100 then
+    if lv <= 150 then
         NM = "Bandit"
         NQ = "BanditQuest1"
         Number = 1
@@ -48,14 +46,14 @@ local function CheckLevel()
         NQ = "JungleQuest"
         Number = 1
         PQ = CFrame.new(-1600, 36, 150)
-        WM = CFrame.new(-1605, 36, 160)
+        WM = CFrame.new() -- จุดรอมอน
 
     elseif lv <= 5 then
         NM = "Gorilla"
         NQ = "JungleQuest"
         Number = 2
         PQ = CFrame.new(-1600, 36, 150)
-        WM = CFrame.new(-1610, 36, 155)
+        WM = CFrame.new(-1610, 36, 155) -- จุดรอมอน
     end
 end
 
@@ -65,63 +63,28 @@ local function HasQuest()
     return gui.Quest.Visible and gui.Quest.Container.QuestTitle.Title.Text ~= ""
 end
 
---// Merge NM
-local function MergeNM()
-    local nmMobs = {}
-    
-    -- เก็บมอนสเตอร์ NM ทั้งหมด
-    for _, mob in pairs(EnemiesFolder:GetChildren()) do
-        if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
-            table.insert(nmMobs, mob)
-        end
-    end
-
-    -- รวมทุกตัวเข้าด้วยกัน
-    for i = 1, #nmMobs do
-        for j = i + 1, #nmMobs do
-            local v = nmMobs[i]
-            local y = nmMobs[j]
-
-            if v and y and v.Parent and y.Parent then
-                v.HumanoidRootPart.CFrame = y.HumanoidRootPart.CFrame
-
-                -- ปรับขนาดและคุณสมบัติ
-                v.HumanoidRootPart.Size = Vector3.new(60,60,60)
-                y.HumanoidRootPart.Size = Vector3.new(60,60,60)
-                v.HumanoidRootPart.Transparency = 1
-                v.HumanoidRootPart.CanCollide = false
-                y.HumanoidRootPart.CanCollide = false
-                v.Humanoid.WalkSpeed = 0
-                y.Humanoid.WalkSpeed = 0
-                v.Humanoid.JumpPower = 0
-                y.Humanoid.JumpPower = 0
-
-                -- SimulationRadius
-                if sethiddenproperty then
-                    sethiddenproperty(LP, "SimulationRadius", math.huge)
-                end
-            end
-        end
-    end
-end
-
 --// Loop ฟาร์ม
 task.spawn(function()
     while task.wait(0.3) do
         if not _G.AutoFarm then continue end
+
         pcall(function()
             CheckLevel()
 
-            -- รับเควสถ้าไม่มี
             if not HasQuest() then
                 TweenTo(PQ)
                 task.wait(0.3)
-                ReplicatedStorage.Remotes.CommF_:InvokeServer(NQ, Number)
+
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(
+                    "StartQuest",
+                    NQ,
+                    Number
+                )
                 return 
             end
 
             local foundTarget = false
-            for _, v in pairs(EnemiesFolder:GetChildren()) do
+            for _, v in pairs(workspace.Enemies:GetChildren()) do
                 if not HasQuest() then return end
 
                 local root = v:FindFirstChild("HumanoidRootPart")
@@ -150,7 +113,7 @@ task.spawn(function()
     end
 end)
 
--- เรียก CheckLevel() ครั้งแรก
+-- เรียก CheckLevel() ครั้งแรกตอนเริ่ม
 CheckLevel()
 
 --// Auto Attack
@@ -159,12 +122,12 @@ local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
 local function AutoAttack()
     if not _G.AutoFarm then return end
-    local char = LP.Character
+    local char = game.Players.LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
 
-    CheckLevel() -- อัปเดต NM/WL
+    CheckLevel() -- อัปเดต NM/WL ทุกรอบ
 
-    for _, mob in pairs(EnemiesFolder:GetChildren()) do
+    for _, mob in pairs(workspace.Enemies:GetChildren()) do
         if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
             local dist = (mob.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
             if dist <= ATTACK_RANGE then
@@ -181,7 +144,63 @@ task.spawn(function()
     end
 end)
 
---// Merge NM ทุกเฟรม
+--// Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+--// Player & Folder
+local LocalPlayer = Players.LocalPlayer
+local EnemiesFolder = Workspace:WaitForChild("Enemies")
+
+--// ฟังก์ชัน Merge NM แบบรวมเป็นกลุ่ม ไม่ลอย
+local function MergeNM()
+    if not NM then return end
+    local nmMobs = {}
+
+    -- เก็บมอนสเตอร์ NM ทั้งหมด
+    for _, mob in pairs(EnemiesFolder:GetChildren()) do
+        if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
+            table.insert(nmMobs, mob)
+        end
+    end
+
+    if #nmMobs <= 1 then return end -- ตัวเดียวไม่ต้องรวม
+
+    local ref = nmMobs[1] -- ตัวอ้างอิง
+    local basePos = ref.HumanoidRootPart.Position
+
+    -- รวมตัวอื่นรอบตัวอ้างอิง
+    for i = 2, #nmMobs do
+        local mob = nmMobs[i]
+        if mob and mob.Parent then
+            local offset = Vector3.new((i-1)*2, 0, 0) -- เว้นระยะ X 2 studs ต่อมอน
+            local newPos = Vector3.new(basePos.X + offset.X, mob.HumanoidRootPart.Position.Y, basePos.Z + offset.Z)
+            mob.HumanoidRootPart.CFrame = CFrame.new(newPos)
+
+            -- ปรับขนาดและคุณสมบัติ
+            mob.HumanoidRootPart.Size = Vector3.new(60,60,60)
+            mob.HumanoidRootPart.Transparency = 1
+            mob.HumanoidRootPart.CanCollide = false
+            mob.Humanoid.WalkSpeed = 0
+            mob.Humanoid.JumpPower = 0
+        end
+    end
+
+    -- ปรับตัวอ้างอิงด้วย
+    ref.HumanoidRootPart.Size = Vector3.new(60,60,60)
+    ref.HumanoidRootPart.Transparency = 1
+    ref.HumanoidRootPart.CanCollide = false
+    ref.Humanoid.WalkSpeed = 0
+    ref.Humanoid.JumpPower = 0
+
+    -- SimulationRadius ให้ครอบคลุมมอนทั้งหมด
+    if sethiddenproperty then
+        sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+    end
+end
+
+--// รัน MergeNM ทุก Heartbeat
 RunService.Heartbeat:Connect(function()
     pcall(MergeNM)
 end)
