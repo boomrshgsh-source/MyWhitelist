@@ -12,7 +12,6 @@ local TweenSpeed = 300
 local HeadOffset = CFrame.new(0, 10, 0)
 local ATTACK_RANGE = 25
 
-
 --// Tween
 local function TweenTo(pos)
     local hrp = LP.Character:WaitForChild("HumanoidRootPart")
@@ -31,27 +30,30 @@ local function TPTo(pos)
 end
 
 --// เช็คเลเวล
-local NM, NQ, Number, PQ
+local NM, NQ, Number, PQ, WM
 local function CheckLevel()
     local lv = LP.Data.Level.Value
 
-    if lv <= 10 then
+    if lv <= 15 then
         NM = "Bandit"
         NQ = "BanditQuest1"
         Number = 1
         PQ = CFrame.new(1059, 16, 1552)
+        WM = CFrame.new(1093.886962890625, 74.5149154663086, 1618.773193359375)
 
     elseif lv <= 30 then
         NM = "Monkey"
         NQ = "JungleQuest"
         Number = 1
         PQ = CFrame.new(-1600, 36, 150)
+        WM = CFrame.new() -- จุดรอมอน
 
     elseif lv <= 50 then
         NM = "Gorilla"
         NQ = "JungleQuest"
         Number = 2
         PQ = CFrame.new(-1600, 36, 150)
+        WM = CFrame.new(-1610, 36, 155) -- จุดรอมอน
     end
 end
 
@@ -69,7 +71,6 @@ task.spawn(function()
         pcall(function()
             CheckLevel()
 
-
             if not HasQuest() then
                 TweenTo(PQ)
                 task.wait(0.3)
@@ -81,15 +82,16 @@ task.spawn(function()
                 )
                 return 
             end
+
+            local foundTarget = false
             for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if not HasQuest() then
-                    return
-                end
+                if not HasQuest() then return end
 
                 local root = v:FindFirstChild("HumanoidRootPart")
                 local hum = v:FindFirstChildOfClass("Humanoid")
 
                 if root and hum and hum.Health > 0 and v.Name == NM then
+                    foundTarget = true
 
                     if (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude > 15 then
                         TweenTo(root.CFrame * HeadOffset)
@@ -97,35 +99,33 @@ task.spawn(function()
 
                     repeat
                         task.wait()
-
-                        -- ถ้าเควสหายระหว่างตี → หยุดทันที
-                        if not HasQuest() then
-                            return
-                        end
-
+                        if not HasQuest() then return end
                         TPTo(root.CFrame * HeadOffset)
                     until hum.Health <= 0
                 end
+            end
+
+            -- ถ้าไม่มีมอนเกิด → ไปยืนรอจุด WM
+            if not foundTarget then
+                TweenTo(WM)
             end
         end)
     end
 end)
 
-
 -- เรียก CheckLevel() ครั้งแรกตอนเริ่ม
 CheckLevel()
 
 --// Auto Attack
-local RegisterAttack = game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterAttack"]
-local RegisterHit = game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterHit"]
-
+local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
+local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
 local function AutoAttack()
     if not _G.AutoFarm then return end
     local char = game.Players.LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
 
-    CheckLevel() -- อัปเดต NM ทุกรอบ
+    CheckLevel() -- อัปเดต NM/WL ทุกรอบ
 
     for _, mob in pairs(workspace.Enemies:GetChildren()) do
         if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
