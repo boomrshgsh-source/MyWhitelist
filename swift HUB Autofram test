@@ -1,0 +1,198 @@
+--// Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+--// Player
+local LP = Players.LocalPlayer
+
+--// Settings
+_G.AutoFarm = true
+local TweenSpeed = 300
+local HeadOffset = CFrame.new(0, 10, 0)
+local ATTACK_RANGE = 25
+
+--// Tween
+local function TweenTo(pos)
+    local hrp = LP.Character:WaitForChild("HumanoidRootPart")
+    local distance = (hrp.Position - pos.Position).Magnitude
+    local tweenInfo = TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear)
+
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = pos})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+--// TP
+local function TPTo(pos)
+    local hrp = LP.Character:WaitForChild("HumanoidRootPart")
+    hrp.CFrame = pos
+end
+
+--// เช็คเลเวล
+local NM, NQ, Number, PQ, WM
+local function CheckLevel()
+    local lv = LP.Data.Level.Value
+
+    if lv <= 150 then
+        NM = "Bandit"
+        NQ = "BanditQuest1"
+        Number = 1
+        PQ = CFrame.new(1059.37195, 15.4495068, 1550.4231, 0.939700544, -0, -0.341998369, 0, 1, -0, 0.341998369, 0, 0.939700544)
+        WM = CFrame.new(1093.886962890625, 74.5149154663086, 1618.773193359375)
+
+    elseif lv <= 3 then
+        NM = "Monkey"
+        NQ = "JungleQuest"
+        Number = 1
+        PQ = CFrame.new(-1600, 36, 150)
+        WM = CFrame.new() -- จุดรอมอน
+
+    elseif lv <= 5 then
+        NM = "Gorilla"
+        NQ = "JungleQuest"
+        Number = 2
+        PQ = CFrame.new(-1600, 36, 150)
+        WM = CFrame.new(-1610, 36, 155) -- จุดรอมอน
+    end
+end
+
+--// เช็คว่า "มีเควสอยู่ไหม"
+local function HasQuest()
+    local gui = LP.PlayerGui.Main
+    return gui.Quest.Visible and gui.Quest.Container.QuestTitle.Title.Text ~= ""
+end
+
+--// Loop ฟาร์ม
+task.spawn(function()
+    while task.wait(0.3) do
+        if not _G.AutoFarm then continue end
+
+        pcall(function()
+            CheckLevel()
+
+            if not HasQuest() then
+                TweenTo(PQ)
+                task.wait(0.3)
+
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(
+                    "StartQuest",
+                    NQ,
+                    Number
+                )
+                return 
+            end
+
+            local foundTarget = false
+            for _, v in pairs(workspace.Enemies:GetChildren()) do
+                if not HasQuest() then return end
+
+                local root = v:FindFirstChild("HumanoidRootPart")
+                local hum = v:FindFirstChildOfClass("Humanoid")
+
+                if root and hum and hum.Health > 0 and v.Name == NM then
+                    foundTarget = true
+
+                    if (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude > 15 then
+                        TweenTo(root.CFrame * HeadOffset)
+                    end
+
+                    repeat
+                        task.wait()
+                        if not HasQuest() then return end
+                        TPTo(root.CFrame * HeadOffset)
+                    until hum.Health <= 0
+                end
+            end
+
+            -- ถ้าไม่มีมอนเกิด → ไปยืนรอจุด WM
+            if not foundTarget then
+                TweenTo(WM)
+            end
+        end)
+    end
+end)
+
+-- เรียก CheckLevel()
+CheckLevel()
+
+--// AutoAttack 
+local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
+local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
+
+task.spawn(function()
+    while task.wait(0.01) do -- loop 
+        if not _G.AutoFarm then continue end
+        pcall(function()
+            local char = LP.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+            local hrp = char.HumanoidRootPart
+
+            local mobsInRange = {}
+            for _, mob in pairs(workspace.Enemies:GetChildren()) do
+                if mob.Name == NM 
+                and mob:FindFirstChild("HumanoidRootPart") 
+                and mob:FindFirstChildOfClass("Humanoid") 
+                and mob.Humanoid.Health > 0 then
+                    local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if dist <= ATTACK_RANGE then
+                        table.insert(mobsInRange, mob)
+                    end
+                end
+            end
+
+            -- ยิงทุกตัว
+            for _, mob in pairs(mobsInRange) do
+                RegisterAttack:FireServer(0.01)
+                RegisterHit:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
+            end
+        end)
+    end
+end)
+
+
+local LocalPlayer = Players.LocalPlayer
+local EnemiesFolder = Workspace:WaitForChild("Enemies")
+
+-- ฟังก์ชันรวมมอนตาม NM
+local function MergeNM()
+    local mobs = {}
+
+    for _, mob in pairs(EnemiesFolder:GetChildren()) do
+        if mob.Name == NM 
+        and mob:FindFirstChild("HumanoidRootPart") 
+        and mob:FindFirstChildOfClass("Humanoid") 
+        and mob.Humanoid.Health > 0 then
+            table.insert(mobs, mob)
+        end
+    end
+
+    if #mobs <= 1 then return end
+
+    local base = mobs[1].HumanoidRootPart.Position
+
+    for i = 2, #mobs do
+        local mob = mobs[i]
+        mob.HumanoidRootPart.CFrame = CFrame.new(base)
+        mob.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+        mob.HumanoidRootPart.CanCollide = false
+        mob.HumanoidRootPart.Transparency = 1
+        mob.Humanoid.WalkSpeed = 0
+        mob.Humanoid.JumpPower = 0
+    end
+
+    mobs[1].HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+    mobs[1].HumanoidRootPart.CanCollide = false
+    mobs[1].HumanoidRootPart.Transparency = 1
+    mobs[1].Humanoid.WalkSpeed = 0
+    mobs[1].Humanoid.JumpPower = 0
+
+    if sethiddenproperty then
+        sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+    end
+end
+
+RunService.Heartbeat:Connect(MergeNM)
