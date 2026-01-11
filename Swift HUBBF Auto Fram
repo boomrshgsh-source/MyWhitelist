@@ -125,23 +125,23 @@ task.spawn(function()
         if not _G.AutoFarm then continue end
         pcall(function()
             local char = LP.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+            local hrp = char.HumanoidRootPart
 
-            -- เก็บมอนทั้งหมดในระยะ ATTACK_RANGE
             local mobsInRange = {}
             for _, mob in pairs(workspace.Enemies:GetChildren()) do
-                if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
-                    if mob.Humanoid.Health > 0 then
-                        local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
-                        if dist <= ATTACK_RANGE then
-                            table.insert(mobsInRange, mob)
-                        end
+                if mob.Name == NM 
+                and mob:FindFirstChild("HumanoidRootPart") 
+                and mob:FindFirstChildOfClass("Humanoid") 
+                and mob.Humanoid.Health > 0 then
+                    local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if dist <= ATTACK_RANGE then
+                        table.insert(mobsInRange, mob)
                     end
                 end
             end
 
-            -- ยิงทุกตัวแบบเร็วสุด
+            -- ยิงทุกตัว
             for _, mob in pairs(mobsInRange) do
                 RegisterAttack:FireServer(0.01)
                 RegisterHit:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
