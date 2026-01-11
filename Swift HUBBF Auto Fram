@@ -116,31 +116,37 @@ end)
 -- เรียก CheckLevel() ครั้งแรกตอนเริ่ม
 CheckLevel()
 
---// Auto Attack
+--// AutoAttack แบบวนทุกตัวในระยะเร็วที่สุด
 local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
 local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
-local function AutoAttack()
-    if not _G.AutoFarm then return end
-    local char = game.Players.LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+task.spawn(function()
+    while task.wait(0.01) do -- loop เร็วที่สุด
+        if not _G.AutoFarm then continue end
+        pcall(function()
+            local char = LP.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
 
-    CheckLevel() -- อัปเดต NM/WL ทุกรอบ
+            -- เก็บมอนทั้งหมดในระยะ ATTACK_RANGE
+            local mobsInRange = {}
+            for _, mob in pairs(workspace.Enemies:GetChildren()) do
+                if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
+                    if mob.Humanoid.Health > 0 then
+                        local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+                        if dist <= ATTACK_RANGE then
+                            table.insert(mobsInRange, mob)
+                        end
+                    end
+                end
+            end
 
-    for _, mob in pairs(workspace.Enemies:GetChildren()) do
-        if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
-            local dist = (mob.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
-            if dist <= ATTACK_RANGE then
+            -- ยิงทุกตัวแบบเร็วสุด
+            for _, mob in pairs(mobsInRange) do
                 RegisterAttack:FireServer(0.01)
                 RegisterHit:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
             end
-        end
-    end
-end
-
-task.spawn(function()
-    while task.wait(0.01) do
-        pcall(AutoAttack)
+        end)
     end
 end)
 
