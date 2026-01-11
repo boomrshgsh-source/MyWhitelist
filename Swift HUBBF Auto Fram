@@ -40,7 +40,7 @@ end
 local function HasQuest()
     local gui = LP.PlayerGui.Main
     return gui.Quest.Visible 
-        and gui.Quest.Container.QuestTitle.Title.Text ~= ""
+        and gui.Quest.Container.QuestTitle.Title.Text ~= "NQ"
 end
 
 --// TWEEN MOVE
