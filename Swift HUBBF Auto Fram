@@ -34,26 +34,26 @@ local NM, NQ, Number, PQ, WM
 local function CheckLevel()
     local lv = LP.Data.Level.Value
 
-    if lv <= 150 then
+    if lv <= 10 then
         NM = "Bandit"
         NQ = "BanditQuest1"
         Number = 1
         PQ = CFrame.new(1059.37195, 15.4495068, 1550.4231, 0.939700544, -0, -0.341998369, 0, 1, -0, 0.341998369, 0, 0.939700544)
         WM = CFrame.new(1093.886962890625, 74.5149154663086, 1618.773193359375)
 
-    elseif lv <= 3 then
+    elseif lv <= 20 then
         NM = "Monkey"
         NQ = "JungleQuest"
         Number = 1
         PQ = CFrame.new(-1600, 36, 150)
         WM = CFrame.new() -- จุดรอมอน
 
-    elseif lv <= 5 then
+    elseif lv <= 35 then
         NM = "Gorilla"
         NQ = "JungleQuest"
         Number = 2
         PQ = CFrame.new(-1600, 36, 150)
-        WM = CFrame.new(-1610, 36, 155) -- จุดรอมอน
+        WM = CFrame.new(-1610, 36, 155) 
     end
 end
 
