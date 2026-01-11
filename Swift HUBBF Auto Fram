@@ -10,6 +10,8 @@ local LP = Players.LocalPlayer
 _G.AutoFarm = true
 local TweenSpeed = 300
 local HeadOffset = CFrame.new(0, 10, 0)
+local ATTACK_RANGE = 25
+
 
 --// Tween
 local function TweenTo(pos)
@@ -110,45 +112,34 @@ task.spawn(function()
 end)
 
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LP = Players.LocalPlayer
+-- เรียก CheckLevel() ครั้งแรกตอนเริ่ม
+CheckLevel()
 
-local ATTACK_RANGE = 25
-local TARGET_NAME = "NM"
+--// Auto Attack
+local RegisterAttack = game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterAttack"]
+local RegisterHit = game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterHit"]
 
-local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
-local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
 local function AutoAttack()
     if not _G.AutoFarm then return end
+    local char = game.Players.LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
 
-    local char = LP.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    CheckLevel() -- อัปเดต NM ทุกรอบ
 
     for _, mob in pairs(workspace.Enemies:GetChildren()) do
-        if mob.Name == TARGET_NAME
-        and mob:FindFirstChild("HumanoidRootPart")
-        and mob:FindFirstChild("Humanoid")
-        and mob.Humanoid.Health > 0 then
-
-            local dist = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+        if mob.Name == NM and mob:FindFirstChild("HumanoidRootPart") then
+            local dist = (mob.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
             if dist <= ATTACK_RANGE then
                 RegisterAttack:FireServer(0.01)
-                RegisterHit:FireServer(
-                    mob.HumanoidRootPart,
-                    {},
-                    "002a98fe"
-                )
-                task.wait(0.01) -- เว้นนิดให้เซิร์ฟเวอร์รับ
+                RegisterHit:FireServer(mob.HumanoidRootPart, {}, "002a98fe")
             end
         end
     end
 end
 
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.01) do
         pcall(AutoAttack)
     end
 end)
