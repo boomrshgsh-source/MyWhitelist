@@ -316,6 +316,34 @@ if sethiddenproperty then
     sethiddenproperty(LP, "SimulationRadius", math.huge)
 end
 
+
+
+-- --------------------
+--     ออโต้ อัพสตัด
+-- --------------------
+
+-- =========================
+-- AUTO STATS CONFIG
+-- =========================
+local statsToAdd = {
+    "Melee",
+    "Defense",
+    "Sword",
+    "Gun",
+    "Demon Fruit"
+}
+
+local auto_stats = false
+
+-- =========================
+-- AUTO STATS TOGGLE
+-- =========================
+
+-- =========================
+-- STAT SELECTION DROPDOWN
+-- =========================
+
+
 local Tab = Window:Tab({Title = "Main", Icon = "user"})
 
 Tab:Toggle({
@@ -347,3 +375,49 @@ local Keybind = Tab:Keybind({
         Window:SetToggleKey(Enum.KeyCode[v])
     end
 })
+
+local Stab = Window:Tab({Title = "Stud", Icon = "user"})
+
+
+Stab:Dropdown({
+    Title = "Select Stat",
+    Desc = "",
+    Values = {
+        "Melee",
+        "Defense",
+        "Sword",
+        "Gun",
+        "Demon Fruit"
+    },
+    Multi = true, -- เลือกได้หลายค่า
+    Default = {"Melee"},
+    Callback = function(Value)
+        statsToAdd = Value
+    end
+})
+
+Stab:Toggle({
+    Title = "Auto Stats",
+    Desc = "",
+    Value = false,
+    Callback = function(Value)
+        auto_stats = Value
+
+        if auto_stats then
+            task.spawn(function()
+                while auto_stats do
+                    task.wait(0.1)
+                    for _, stat in ipairs(statsToAdd) do
+                        pcall(function()
+                            game:GetService("ReplicatedStorage")
+                                .Remotes
+                                .CommF_
+                                :InvokeServer("AddPoint", stat, 1)
+                        end)
+                    end
+                end
+            end)
+        end
+    end
+})
+
