@@ -316,6 +316,8 @@ if sethiddenproperty then
     sethiddenproperty(LP, "SimulationRadius", math.huge)
 end
 
+local Tab = Window:Tab({Title = "Main", Icon = "user"})
+
 Tab:Toggle({
     Title = "AutoFarm Lv",
     Desc = "ฟามเวล",
@@ -325,7 +327,7 @@ Tab:Toggle({
     end
 })
 
--- Dropdown เลือกประเภทอาวุธ (เริ่มต้น Melee)
+
 Tab:Dropdown({
     Title = "Weapon Type",
     Desc = "เลือกweapon",
