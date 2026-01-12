@@ -1,0 +1,30 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local Players, RunService, Camera, LocalPlayer, Mouse, UIS =
+    game:GetService("Players"), game:GetService("RunService"),
+    workspace.CurrentCamera, game.Players.LocalPlayer, game.Players.LocalPlayer:GetMouse(),
+    game:GetService("UserInputService")
+
+local Window = WindUI:CreateWindow({
+    Title = "Swift HUB | [ TEST ]",
+    Icon = "rbxassetid://126601065035910",
+    Author = "",
+    Folder = "Swift HUBFolder",
+    Size = UDim2.fromOffset(400, 200),
+    Theme = "Dark",
+    Transparent = true,
+    Resizable = true,
+})
+
+local Tab = Window:Tab({Title = "Main", Icon = "user"})
+
+
+
+
+local Keybind = Tab:Keybind({
+    Title = "Keybind",
+    Desc = "Keybind to open ui",
+    Value = "G",
+    Callback = function(v)
+        Window:SetToggleKey(Enum.KeyCode[v])
+    end
+})
