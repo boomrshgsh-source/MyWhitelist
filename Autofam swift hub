@@ -1,3 +1,7 @@
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 local Players, RunService, Camera, LocalPlayer, Mouse, UIS =
     game:GetService("Players"), game:GetService("RunService"),
@@ -19,9 +23,6 @@ local Window = WindUI:CreateWindow({
 -------------------------------------------------
 --// WAIT GAME LOADED
 -------------------------------------------------
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
 
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
@@ -55,16 +56,13 @@ LP.CharacterAdded:Connect(SetCharacter)
 -------------------------------------------------
 --// Settings
 -------------------------------------------------
-_G.AutoFarm = true
+_G.AutoFarm = false
 local TweenSpeed = 300
-local HeadOffset = CFrame.new(0, 20, 0)
-local MAX_BRING_DISTANCE = 170
+local HeadOffset = CFrame.new(0, 15, 0)
+local MAX_BRING_DISTANCE = 150
 local ATTACK_DELAY = 0.01
-
--- AutoEquip settings
 local selected_Tool = "Melee"
 local EquipCheckDelay = 1
-
 
 
 -------------------------------------------------
@@ -111,6 +109,9 @@ local function GetQuest()
     }
 end
 
+-------------------------------------------------
+--// Utils
+-------------------------------------------------
 local function TweenTo(cf)
     local dist = (RootPart.Position - cf.Position).Magnitude
     local tween = TweenService:Create(
@@ -189,7 +190,6 @@ task.spawn(function()
         )
     end
 end)
-
 task.spawn(function()
     while task.wait(0.2) do
         if not _G.AutoFarm then continue end
@@ -278,6 +278,7 @@ task.spawn(function()
     end
 end)
 
+
 local function FindWeaponsByType(weaponType)
     local backpack = LP.Backpack
     local weapons = {}
@@ -315,26 +316,23 @@ if sethiddenproperty then
     sethiddenproperty(LP, "SimulationRadius", math.huge)
 end
 
-local Tab = Window:Tab({Title = "Main", Icon = "user"})
-
-
 Tab:Toggle({
-    Title = "AutoFarm",
-    Desc = "",
+    Title = "AutoFarm Lv",
+    Desc = "ฟามเวล",
     Default = _G.AutoFarm,
     Callback = function(state)
         _G.AutoFarm = state
     end
 })
 
-
+-- Dropdown เลือกประเภทอาวุธ (เริ่มต้น Melee)
 Tab:Dropdown({
     Title = "Weapon Type",
-    Desc = "",
-    Default = selected_Tool,
-    Options = {"Melee", "Sword", "Blox Fruit", "Gun"},
-    Callback = function(Value)
-        selected_Tool = Value[1]
+    Desc = "เลือกweapon",
+    Values = {"Melee", "Sword", "Blox Fruit", "Gun"},
+    Value = "Melee",
+    Callback = function(option)
+        selected_Tool = option
     end
 })
 
