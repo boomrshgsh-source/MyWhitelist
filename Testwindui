@@ -5,5 +5,5 @@ local Window = WindUI:CreateWindow({
     Icon = "door-open", -- lucide icon
     Author = "by .ftgs and .ftgs",
     Folder = "MySuperHub",
-    
-    
+    },
+})
