@@ -1,0 +1,134 @@
+-- ===============================
+-- LOAD WINDUI
+-- ===============================
+local WindUI = loadstring(game:HttpGet(
+    "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
+))()
+
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- ===============================
+-- COLORS
+-- ===============================
+local NEON_BLUE   = Color3.fromHex("#00E5FF")
+local NEON_YELLOW = Color3.fromHex("#FFF700")
+local DARK_BG1    = Color3.fromHex("#0B1220")
+local DARK_BG2    = Color3.fromHex("#020409")
+local WHITE       = Color3.fromHex("#FFFFFF")
+
+-- ===============================
+-- GRADIENTS
+-- ===============================
+local NEON_GRADIENT = WindUI:Gradient({
+    ["0"]   = { Color = NEON_BLUE,   Transparency = 0 },
+    ["100"] = { Color = NEON_YELLOW, Transparency = 0 },
+}, { Rotation = 45 })
+
+local BACKGROUND_GRADIENT = WindUI:Gradient({
+    ["0"]   = { Color = NEON_BLUE,   Transparency = 0.2 },
+    ["100"] = { Color = NEON_YELLOW, Transparency = 0.2 },
+}, { Rotation = 45 })
+
+local DARK_TAB_GRADIENT = WindUI:Gradient({
+    ["0"]   = { Color = DARK_BG1, Transparency = 0 },
+    ["100"] = { Color = DARK_BG2, Transparency = 0 },
+}, { Rotation = 90 })
+
+-- ===============================
+-- THEME
+-- ===============================
+WindUI:AddTheme({
+    Name = "Senixa Theme",
+
+    Accent = NEON_GRADIENT,
+    Background = BACKGROUND_GRADIENT,
+    BackgroundTransparency = 0.3,
+
+    Outline = NEON_YELLOW,
+    Text = WHITE,
+    Placeholder = Color3.fromHex("#B6F7FF"),
+    Icon = WHITE,
+    Hover = NEON_GRADIENT,
+
+    WindowBackground = BACKGROUND_GRADIENT,
+    WindowShadow = Color3.fromHex("#000000"),
+
+    WindowTopbarButtonIcon = WHITE,
+    WindowTopbarTitle = WHITE,
+    WindowTopbarAuthor = WHITE,
+    WindowTopbarIcon = WHITE,
+
+    TabBackground = DARK_TAB_GRADIENT,
+    TabTitle = WHITE,
+    TabIcon = WHITE,
+
+    ElementBackground = DARK_TAB_GRADIENT,
+    ElementTitle = WHITE,
+    ElementDesc = Color3.fromHex("#C9F6FF"),
+    ElementIcon = Color3.fromHex("#C9F6FF"),
+
+    Button = NEON_GRADIENT,
+    Toggle = NEON_GRADIENT,
+    ToggleBar = WHITE,
+    Checkbox = NEON_GRADIENT,
+    CheckboxIcon = WHITE,
+    Slider = NEON_GRADIENT,
+    SliderThumb = WHITE,
+})
+
+WindUI:SetTheme("NeonDarkReadable")
+
+
+local Window = WindUI:CreateWindow({
+    Title = "Senixa HUB [ Test ]",
+    Icon = "Senixa Hub",
+    Theme = "Senixa Theme",
+    Transparent = true,
+    Resizable = true,
+
+    -- ⭐ ขนาด UI
+    Size = UDim2.fromOffset(850, 400),   -- ขนาดเริ่มต้น (ใหญ่ขึ้น)
+    MinSize = Vector2.new(480, 480),     -- เล็กสุด
+    MaxSize = Vector2.new(1000, 500),    -- ใหญ่สุด
+    SideBarWidth = 180,                  -- Sidebar กว้างขึ้น
+
+    User = {
+        Enabled = true,
+        Anonymous = false,
+        Name = LP.Name,
+        Image = "rbxthumb://type=AvatarHeadShot&id=" .. LP.UserId .. "&w=420&h=420",
+    },
+})
+
+-- ===============================
+-- TAB
+-- ===============================
+local Tab = Window:Tab({
+    Title = "MAIN MENU",
+    Icon = "layers"
+})
+
+
+
+Tab:Toggle({
+    Title = "Toggle Test",
+    Desc = "",
+    Value = false,
+    Callback = function(v)
+        print("Toggle:", v)
+    end
+})
+
+Tab:Slider({
+    Title = "Slider Test",
+    Step = 1,
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = 50
+    },
+    Callback = function(v)
+        print("Slider:", v)
+    end
+})
