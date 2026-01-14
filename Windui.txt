@@ -82,7 +82,7 @@ WindUI:SetTheme("NeonDarkReadable")
 
 local Window = WindUI:CreateWindow({
     Title = "Senixa HUB [ Test ]",
-    Icon = "Senixa Hub",
+    Icon = "rbxassetid://126601065035910",
     Theme = "Senixa Theme",
     Transparent = true,
     Resizable = true,
