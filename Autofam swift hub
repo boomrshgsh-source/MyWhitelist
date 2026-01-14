@@ -21,8 +21,6 @@ local Window = WindUI:CreateWindow({
 
 
 
-
-
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -36,280 +34,247 @@ repeat task.wait() until LP.PlayerGui.Main:FindFirstChild("Quest")
 repeat task.wait() until LP:FindFirstChild("Data") and LP.Data:FindFirstChild("Level")
 repeat task.wait() until Workspace:FindFirstChild("Enemies")
 
+-------------------------------------------------
+--// PLAYER
+-------------------------------------------------
 local Character, RootPart
 local function SetCharacter(char)
-Character = char
-RootPart = char:WaitForChild("HumanoidRootPart")
+    Character = char
+    RootPart = char:WaitForChild("HumanoidRootPart")
 end
 SetCharacter(LP.Character or LP.CharacterAdded:Wait())
 LP.CharacterAdded:Connect(SetCharacter)
 
-
-
+-------------------------------------------------
+--// SETTINGS
+-------------------------------------------------
 _G.AutoFarm = false
 local function IsOn()
-return _G.AutoFarm == false
+    return _G.AutoFarm == true
 end
-
-
----
-
---// SETTINGS
-
 local TweenSpeed = 300
-local HeadOffset = Vector3.new(0,30,0)
+local HeadOffset = Vector3.new(0, 30, 0)
 
--- Bringsett
+-- Bring
 local BRING_DISTANCE = 125
 local BRING_LERP_SPEED = 0.04
 local BRING_UPDATE_DELAY = 0.1
 local BringInterval = 4
 local LastBringTime = 0
 
-
----
-
---// Quest System
-
+-------------------------------------------------
+--// QUEST SYSTEM
+-------------------------------------------------
 local QuestData = require(ReplicatedStorage:WaitForChild("Quests"))
 local GuideModule = require(ReplicatedStorage:WaitForChild("GuideModule"))
 
 local function Action(args)
-return ReplicatedStorage.Remotes.CommF_:InvokeServer(table.unpack(args))
+    return ReplicatedStorage.Remotes.CommF_:InvokeServer(table.unpack(args))
 end
 
 local function HasQuest()
-return LP.PlayerGui.Main.Quest.Visible
+    return LP.PlayerGui.Main.Quest.Visible
 end
 
 local function GetQuest()
-local best, lv, key, category = nil, -1
+    local best, lv, key, category = nil, -1
 
-for cat, quests in pairs(QuestData) do  
-    for qKey, info in pairs(quests) do  
-        if info.LevelReq and LP.Data.Level.Value >= info.LevelReq then  
-            local mobName, count = next(info.Task or {})  
-            if not count or count < 2 then continue end  
-            if info.LevelReq > lv then  
-                lv = info.LevelReq  
-                best = info  
-                key = qKey  
-                category = cat  
-            end  
-        end  
-    end  
-end  
+    for cat, quests in pairs(QuestData) do
+        for qKey, info in pairs(quests) do
+            if info.LevelReq and LP.Data.Level.Value >= info.LevelReq then
+                local mobName, count = next(info.Task or {})
+                if not count or count < 2 then continue end
+                if info.LevelReq > lv then
+                    lv = info.LevelReq
+                    best = info
+                    key = qKey
+                    category = cat
+                end
+            end
+        end
+    end
 
-if not best then return end  
+    if not best then return end
 
-local npc = GuideModule.GetNearestNPC(  
-    GuideModule,  
-    RootPart.Position,  
-    LP.Data.Level.Value  
-)  
+    local npc = GuideModule.GetNearestNPC(
+        GuideModule,
+        RootPart.Position,
+        LP.Data.Level.Value
+    )
 
-return {  
-    Mob = next(best.Task),  
-    Key = key,  
-    Category = category,  
-    NPC = npc and npc[1]  
-}
-
+    return {
+        Mob = next(best.Task),
+        Key = key,
+        Category = category,
+        NPC = npc and npc[1]
+    }
 end
 
-
----
-
---// Utils
-
+------------------------------------
+--// UTILS
+-------------------------------
 local function TweenTo(cf, speed)
-if not IsOn() then return end
+    if not IsOn() then return end
 
-local dist = (RootPart.Position - cf.Position).Magnitude  
-local tween = TweenService:Create(  
-    RootPart,  
-    TweenInfo.new(dist / (speed or TweenSpeed), Enum.EasingStyle.Linear),  
-    {CFrame = cf}  
-)  
-tween:Play()  
-tween.Completed:Wait()
-
+    local dist = (RootPart.Position - cf.Position).Magnitude
+    local tween = TweenService:Create(
+        RootPart,
+        TweenInfo.new(dist / (speed or TweenSpeed), Enum.EasingStyle.Linear),
+        { CFrame = cf }
+    )
+    tween:Play()
+    tween.Completed:Wait()
 end
 
 local function GetEnemySpawn(mobName)
-local world = Workspace:FindFirstChild("_WorldOrigin")
-if not world then return end
-local spawns = world:FindFirstChild("EnemySpawns")
-if not spawns then return end
+    local world = Workspace:FindFirstChild("_WorldOrigin")
+    if not world then return end
+    local spawns = world:FindFirstChild("EnemySpawns")
+    if not spawns then return end
 
-for _, v in pairs(spawns:GetChildren()) do  
-    if string.find(v.Name, mobName) then  
-        return v.CFrame  
-    end  
+    for _, v in pairs(spawns:GetChildren()) do
+        if string.find(v.Name, mobName) then
+            return v.CFrame
+        end
+    end
 end
 
-end
-
-
----
-
+----------------------
 --// BRING MOB 
-
+-------------------------------------------------
 local FollowMobs = {}
 local NM
 
 task.spawn(function()
-while task.wait(0.2) do
-if not IsOn() or not NM then continue end
-if tick() - LastBringTime < BringInterval then continue end
-LastBringTime = tick()
+    while task.wait(0.2) do
+        if not IsOn() or not NM then continue end
+        if tick() - LastBringTime < BringInterval then continue end
+        LastBringTime = tick()
 
-table.clear(FollowMobs)  
+        table.clear(FollowMobs)
 
-    for _, mob in pairs(Workspace.Enemies:GetChildren()) do  
-        if mob.Name == NM  
-        and mob:FindFirstChild("HumanoidRootPart")  
-        and mob:FindFirstChild("Humanoid")  
-        and mob.Humanoid.Health > 0  
-        and (mob.HumanoidRootPart.Position - RootPart.Position).Magnitude <= BRING_DISTANCE then  
+        for _, mob in pairs(Workspace.Enemies:GetChildren()) do
+            if mob.Name == NM
+            and mob:FindFirstChild("HumanoidRootPart")
+            and mob:FindFirstChild("Humanoid")
+            and mob.Humanoid.Health > 0
+            and (mob.HumanoidRootPart.Position - RootPart.Position).Magnitude <= BRING_DISTANCE then
 
-            table.insert(FollowMobs, mob)  
+                table.insert(FollowMobs, mob)
 
-            task.spawn(function()  
-                local hrp = mob.HumanoidRootPart  
-                local hum = mob.Humanoid  
+                task.spawn(function()
+                    local hrp = mob.HumanoidRootPart
+                    local hum = mob.Humanoid
 
-                while IsOn() and mob.Parent and hum.Health > 0 do  
-                    if (hrp.Position - RootPart.Position).Magnitude > BRING_DISTANCE then  
-                        break  
-                    end  
+                    while IsOn() and mob.Parent and hum.Health > 0 do
+                        if (hrp.Position - RootPart.Position).Magnitude > BRING_DISTANCE then break end
 
-                    local main = FollowMobs[1]  
-                    if main and main:FindFirstChild("HumanoidRootPart") then  
-                        hrp.CFrame = hrp.CFrame:Lerp(  
-                            main.HumanoidRootPart.CFrame,  
-                            BRING_LERP_SPEED  
-                        )  
-                    end  
-                    task.wait(BRING_UPDATE_DELAY)  
-                end  
-            end)  
-        end  
-    end  
-end
-
+                        local main = FollowMobs[1]
+                        if main and main:FindFirstChild("HumanoidRootPart") then
+                            hrp.CFrame = hrp.CFrame:Lerp(
+                                main.HumanoidRootPart.CFrame,
+                                BRING_LERP_SPEED
+                            )
+                        end
+                        task.wait(BRING_UPDATE_DELAY)
+                    end
+                end)
+            end
+        end
+    end
 end)
 
-
----
-
+-------------------------------------------------
 --// FAST ATTACK
-
+-------------------------------------------------
 local registerHit = debug.getupvalue(getrenv()._G.SendHitsToServer, 1)
 local registerAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
 
 task.spawn(function()
-while task.wait() do
-if not IsOn() then continue end
+    while task.wait() do
+        if not IsOn() then continue end
 
-local hit = {}  
-    for _, mob in pairs(CollectionService:GetTagged("BasicMob")) do  
-        if mob:FindFirstChild("HumanoidRootPart")  
-        and mob.Humanoid.Health > 0  
-        and (mob.HumanoidRootPart.Position - RootPart.Position).Magnitude < 100 then  
-            table.insert(hit, {mob, mob.HumanoidRootPart})  
-        end  
-    end  
+        local hit = {}
+        for _, mob in pairs(CollectionService:GetTagged("BasicMob")) do
+            if mob:FindFirstChild("HumanoidRootPart")
+            and mob.Humanoid.Health > 0
+            and (mob.HumanoidRootPart.Position - RootPart.Position).Magnitude < 100 then
+                table.insert(hit, { mob, mob.HumanoidRootPart })
+            end
+        end
 
-    if #hit > 0 then  
-        registerAttack:FireServer(0/0)  
-        coroutine.resume(registerHit, hit[1][2], {table.unpack(hit, 2)})  
-    end  
-end
-
+        if #hit > 0 then
+            registerAttack:FireServer(0/0)
+            coroutine.resume(registerHit, hit[1][2], { table.unpack(hit, 2) })
+        end
+    end
 end)
-
-
----
-
---// SMART AUTOFARM LOOP
 
 task.spawn(function()
-while task.wait(0.2) do
-if not IsOn() then
-NM = nil
-continue
-end
+    while task.wait(0.2) do
+        if not IsOn() then
+            NM = nil
+            continue
+        end
 
-local quest = GetQuest()  
-    if not quest then continue end  
-    NM = quest.Mob  
+        local quest = GetQuest()
+        if not quest then continue end
+        NM = quest.Mob
 
-    if not HasQuest() then  
-        if quest.NPC then  
-            TweenTo(CFrame.new(quest.NPC))  
-            task.wait(0.3)  
-            Action({"StartQuest", quest.Category, quest.Key})  
-            task.wait(0.5)  
-        end  
-        continue  
-    end  
+        if not HasQuest() then
+            if quest.NPC then
+                TweenTo(CFrame.new(quest.NPC))
+                task.wait(0.3)
+                Action({ "StartQuest", quest.Category, quest.Key })
+                task.wait(0.5)
+            end
+            continue
+        end
 
-    local nearest, dist = nil, math.huge  
-    for _, mob in pairs(Workspace.Enemies:GetChildren()) do  
-        if mob.Name == NM  
-        and mob:FindFirstChild("HumanoidRootPart")  
-        and mob.Humanoid.Health > 0 then  
-            local d = (mob.HumanoidRootPart.Position - RootPart.Position).Magnitude  
-            if d < dist then  
-                dist = d  
-                nearest = mob  
-            end  
-        end  
-    end  
+        local nearest, dist = nil, math.huge
+        for _, mob in pairs(Workspace.Enemies:GetChildren()) do
+            if mob.Name == NM
+            and mob:FindFirstChild("HumanoidRootPart")
+            and mob.Humanoid.Health > 0 then
+                local d = (mob.HumanoidRootPart.Position - RootPart.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    nearest = mob
+                end
+            end
+        end
 
-    if not nearest then  
-        local spawnCF = GetEnemySpawn(NM)  
-        if spawnCF then  
-            TweenTo(spawnCF * CFrame.new(0,10,0))  
-            task.wait(1)  
-        end  
-        continue  
-    end  
+        if not nearest then
+            local spawnCF = GetEnemySpawn(NM)
+            if spawnCF then
+                TweenTo(spawnCF * CFrame.new(0, 10, 0))
+                task.wait(1)
+            end
+            continue
+        end
 
-    while IsOn() and nearest.Parent and nearest.Humanoid.Health > 0 do  
-        RootPart.CFrame =  
-            CFrame.new(nearest.HumanoidRootPart.Position + HeadOffset)  
-        task.wait(0.01)  
-    end  
-end
-
+        while IsOn() and nearest.Parent and nearest.Humanoid.Health > 0 do
+            RootPart.CFrame = CFrame.new(nearest.HumanoidRootPart.Position + HeadOffset)
+            task.wait(0.01)
+        end
+    end
 end)
 
-
----
-
---// Simulation Radius
-
 if sethiddenproperty then
-sethiddenproperty(LP, "SimulationRadius", math.huge)
+    sethiddenproperty(LP, "SimulationRadius", math.huge)
 end
-
-
--- --------------------
---     ออโต้ อัพสตัด
--- --------------------
-
-
 
 local Tab = Window:Tab({Title = "Main", Icon = "user"})
 
 Tab:Toggle({
-    Title = "AutoFarm Lv",
+    Title = "Auto Farm lv",
     Desc = "ฟามเวล",
-    Default = _G.AutoFarm,
+    Default = false,
     Callback = function(state)
         _G.AutoFarm = state
+        if not state then
+            NM = nil
+        end
     end
 })
 
