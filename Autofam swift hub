@@ -62,6 +62,14 @@ local BRING_UPDATE_DELAY = 0.1
 local BringInterval = 4
 local LastBringTime = 0
 
+
+local EquipCheckDelay = 1
+local selected_Tool = "Melee"
+local AutoModes = {
+    AutoFarm = true,
+}
+
+
 -------------------------------------------------
 --// QUEST SYSTEM
 -------------------------------------------------
@@ -264,7 +272,83 @@ if sethiddenproperty then
     sethiddenproperty(LP, "SimulationRadius", math.huge)
 end
 
+
+-----------------
+--// Eq ---------
+-----------------
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+
+
+local function AnyModeOn()
+    for k in pairs(AutoModes) do
+        if _G[k] then
+            return true
+        end
+    end
+    return false
+end
+
+function FindWeaponsByType(weaponType)
+    local weapons = {}
+    for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if tool:IsA("Tool") and tool.ToolTip == weaponType then
+            table.insert(weapons, tool)
+        end
+    end
+    return weapons
+end
+
+function equip_weapon(type_of_weapon)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return end
+
+    local held = char:FindFirstChildOfClass("Tool")
+    if held and held.ToolTip == type_of_weapon then
+        return held
+    end
+
+    local weapons = FindWeaponsByType(type_of_weapon)
+    if #weapons > 0 then
+        humanoid:EquipTool(weapons[1])
+        return weapons[1]
+    end
+end
+
+function Eq(weapon)
+    selected_Tool = weapon
+    if not AnyModeOn() then return end
+    equip_weapon(selected_Tool)
+end
+
+task.spawn(function()
+    while true do
+        task.wait(EquipCheckDelay)
+        if AnyModeOn() then
+            pcall(function()
+                equip_weapon(selected_Tool)
+            end)
+        end
+    end
+end)
+
+
+
 local Tab = Window:Tab({Title = "Main", Icon = "user"})
+
+Tab:Dropdown({
+    Title = "Weapon Type",
+    Desc = "เลือกอาวุธฟาม",
+    Values = {"Melee", "Sword", "Blox Fruit", "Gun"},
+    Value = "Melee",
+    Callback = function(option)
+        Eq(option)
+    end
+})
 
 Tab:Toggle({
     Title = "Auto Farm lv",
@@ -279,15 +363,6 @@ Tab:Toggle({
 })
 
 
-Tab:Dropdown({
-    Title = "Weapon Type",
-    Desc = "เลือกweapon",
-    Values = {"Melee", "Sword", "Blox Fruit", "Gun"},
-    Value = "Melee",
-    Callback = function(option)
-        selected_Tool = option
-    end
-})
 
 
 local Keybind = Tab:Keybind({
@@ -327,9 +402,6 @@ Stab:Toggle({
     end
 })
 
--- =========================
--- STAT SELECTION DROPDOWN
--- =========================
 Stab:Dropdown({
     Title = "Select Stat",
     Desc = "",
@@ -347,9 +419,7 @@ Stab:Dropdown({
     end
 })
 
--- =========================
--- POINTS PER CLICK SLIDER
--- =========================
+
 Stab:Slider({
     Title = "PoinperUpgrade",
     Desc = "ปรับpoin",
