@@ -1,19 +1,33 @@
+--============================
 -- CONFIG
+--============================
 local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
-local FILE = "whitelist.json"
-local TOKEN = "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" -- ห้ามแจก
+local FILE_NAME = "Key.js" -- หรือ whitelist.json
+local TOKEN = "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" -- ❌ ห้ามแจก
 
+--============================
+-- SERVICES
+--============================
 local request = request or http_request or (syn and syn.request)
+if not request then error("Executor not supported") end
+
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
+--============================
+-- CHECK KEY
+--============================
 if not _G.Key then
     lp:Kick("No Key")
     return
 end
 
+local USER_KEY = tostring(_G.Key)
+
+--============================
 -- LOAD GIST
+--============================
 local res = request({
     Url = "https://api.github.com/gists/" .. GIST_ID,
     Method = "GET",
@@ -24,45 +38,41 @@ local res = request({
 })
 
 local gist = HttpService:JSONDecode(res.Body)
-local keys = HttpService:JSONDecode(gist.files[FILE].content)
 
-local key = keys[_G.Key]
-if not key then
+if not gist.files[FILE_NAME] then
+    lp:Kick("Whitelist file missing")
+    return
+end
+
+local keys = HttpService:JSONDecode(
+    gist.files[FILE_NAME].content
+)
+
+local info = keys[USER_KEY]
+if not info then
     lp:Kick("Invalid Key")
     return
 end
 
+--============================
+-- HWID
+--============================
 local HWID = lp.UserId .. "-" .. lp.AccountAge
-local NOW = getServerTime()
 
--- PERMA
-if key.expire == "permanent" then
-    if not key.used then
-        key.used = true
-        key.hwid = HWID
-    elseif key.hwid ~= HWID then
-        lp:Kick("HWID mismatch")
-        return
-    end
-else
-    if not key.used then
-        key.used = true
-        key.hwid = HWID
-        key.start = NOW
-    end
-
-    if NOW >= key.start + key.duration * 86400 then
-        lp:Kick("Key Expired")
-        return
-    end
-
-    if key.hwid ~= HWID then
-        lp:Kick("HWID mismatch")
-        return
-    end
+--============================
+-- BIND HWID
+--============================
+if info.used == false then
+    info.used = true
+    info.hwid = HWID
+elseif info.hwid ~= HWID then
+    lp:Kick("HWID mismatch")
+    return
 end
 
--- SAVE
+--============================
+-- SAVE BACK TO GIST
+--============================
 request({
     Url = "https://api.github.com/gists/" .. GIST_ID,
     Method = "PATCH",
@@ -73,11 +83,18 @@ request({
     },
     Body = HttpService:JSONEncode({
         files = {
-            [FILE] = {
+            [FILE_NAME] = {
                 content = HttpService:JSONEncode(keys)
             }
         }
     })
 })
 
-print("✅ ผ่าน Whitelist")
+--============================
+-- PASSED
+--============================
+print("✅ Whitelist Passed")
+print("🔒 HWID:", HWID)
+
+-- 🔽 ใส่ Script หลักคุณต่อจากนี้
+print("ไวลิต")
