@@ -1,151 +1,83 @@
---================================
 -- CONFIG
---================================
 local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
-local FILE_NAME = "whitelist.json"
-local GITHUB_TOKEN = "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" -- ❗ห้ามแจก
-local GIST_API = "https://api.github.com/gists/" .. GIST_ID
+local FILE = "whitelist.json"
+local TOKEN = "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" -- ห้ามแจก
 
---================================
--- REQUEST SUPPORT
---================================
 local request = request or http_request or (syn and syn.request)
-if not request then error("Executor not supported") end
-
---================================
--- SERVICES
---================================
-local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
---================================
--- GET SERVER TIME (GitHub)
---================================
-local function getServerTime()
-    local res = request({
-        Url = "https://api.github.com",
-        Method = "GET",
-        Headers = {
-            ["User-Agent"] = "Time-Check"
-        }
-    })
-
-    local date = res.Headers["Date"] or res.Headers["date"]
-    -- example: Wed, 15 Jan 2026 15:30:00 GMT
-    local d, m, y, h, mi, s = date:match("%a+, (%d+) (%a+) (%d+) (%d+):(%d+):(%d+)")
-
-    local months = {
-        Jan=1, Feb=2, Mar=3, Apr=4, May=5, Jun=6,
-        Jul=7, Aug=8, Sep=9, Oct=10, Nov=11, Dec=12
-    }
-
-    return os.time({
-        year = tonumber(y),
-        month = months[m],
-        day = tonumber(d),
-        hour = tonumber(h),
-        min = tonumber(mi),
-        sec = tonumber(s)
-    })
-end
-
-local NOW = getServerTime()
-
---================================
--- CHECK KEY
---================================
 if not _G.Key then
-    lp:Kick("No Key Provided")
+    lp:Kick("No Key")
     return
 end
-local USER_KEY = tostring(_G.Key)
 
---================================
--- HWID
---================================
-local HWID = lp.UserId .. "-" .. lp.AccountAge
-
---================================
 -- LOAD GIST
---================================
 local res = request({
-    Url = GIST_API,
+    Url = "https://api.github.com/gists/" .. GIST_ID,
     Method = "GET",
     Headers = {
-        ["Authorization"] = "token " .. GITHUB_TOKEN,
-        ["User-Agent"] = "Roblox-Whitelist"
+        ["Authorization"] = "token " .. TOKEN,
+        ["User-Agent"] = "Roblox"
     }
 })
 
 local gist = HttpService:JSONDecode(res.Body)
-local keys = HttpService:JSONDecode(gist.files[FILE_NAME].content)
+local keys = HttpService:JSONDecode(gist.files[FILE].content)
 
-local info = keys[USER_KEY]
-if not info then
+local key = keys[_G.Key]
+if not key then
     lp:Kick("Invalid Key")
     return
 end
 
---================================
--- PERMANENT KEY
---================================
-if info.expire == "permanent" then
-    if info.used == false then
-        info.used = true
-        info.hwid = HWID
-    elseif info.hwid ~= HWID then
+local HWID = lp.UserId .. "-" .. lp.AccountAge
+local NOW = getServerTime()
+
+-- PERMA
+if key.expire == "permanent" then
+    if not key.used then
+        key.used = true
+        key.hwid = HWID
+    elseif key.hwid ~= HWID then
         lp:Kick("HWID mismatch")
         return
     end
 else
-    --================================
-    -- TIME LIMITED KEY
-    --================================
-    if info.used == false then
-        info.used = true
-        info.hwid = HWID
-        info.start = NOW
+    if not key.used then
+        key.used = true
+        key.hwid = HWID
+        key.start = NOW
     end
 
-    local expireTime = info.start + (info.duration * 86400)
-    if NOW >= expireTime then
+    if NOW >= key.start + key.duration * 86400 then
         lp:Kick("Key Expired")
         return
     end
 
-    if info.hwid ~= HWID then
+    if key.hwid ~= HWID then
         lp:Kick("HWID mismatch")
         return
     end
 end
 
---================================
--- SAVE UPDATE
---================================
+-- SAVE
 request({
-    Url = GIST_API,
+    Url = "https://api.github.com/gists/" .. GIST_ID,
     Method = "PATCH",
     Headers = {
-        ["Authorization"] = "token " .. GITHUB_TOKEN,
+        ["Authorization"] = "token " .. TOKEN,
         ["Content-Type"] = "application/json",
-        ["User-Agent"] = "Roblox-Whitelist"
+        ["User-Agent"] = "Roblox"
     },
     Body = HttpService:JSONEncode({
         files = {
-            [FILE_NAME] = {
+            [FILE] = {
                 content = HttpService:JSONEncode(keys)
             }
         }
     })
 })
 
---================================
--- PASSED
---================================
-print("✅ Whitelist Passed")
-print("🕒 Server Time:", NOW)
-print("🆔 HWID:", HWID)
-
--- ใส่ Script หลักคุณต่อจากนี้
-print("คีย์ถูก")
+print("✅ ผ่าน Whitelist")
