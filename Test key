@@ -2,7 +2,7 @@
 -- CONFIG
 --============================
 local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
-local FILE_NAME = "Key.js" -- หรือ whitelist.json
+local FILE_NAME = "https://gist.githubusercontent.com/boomrshgsh-source/06a3e054df764e01ec58feb6889b87f9/raw/d63aefce2bdca62aa2fe8e92342f444d08b85ca9/Key.js" -- หรือ whitelist.json
 local TOKEN = "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" -- ❌ ห้ามแจก
 
 --============================
