@@ -1,83 +1,151 @@
---================= SWIFT HUB WHITELIST =================--
+--================================
+-- CONFIG
+--================================
+local GIST_ID = "06a3e054df764e01ec58feb6889b87f9"
+local FILE_NAME = "whitelist.json"
+local GITHUB_TOKEN = "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" -- ❗ห้ามแจก
+local GIST_API = "https://api.github.com/gists/" .. GIST_ID
 
--- ลิงก์ Raw JSON ของ Key/HWID
-local GIST_RAW   = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/main/whitelist.json"
+--================================
+-- REQUEST SUPPORT
+--================================
+local request = request or http_request or (syn and syn.request)
+if not request then error("Executor not supported") end
 
--- API สำหรับ PATCH HWID (ต้องมี GitHub Token)
-local GIST_API   = "https://api.github.com/gists/06a3e054df764e01ec58feb6889b87f9"
-local TOKEN      = "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"
-
--- ลิงก์สคริปต์จริงที่จะโหลดหลังเช็ค Key/HWID
-local MAIN_SCRIPT = "https://raw.githubusercontent.com/boomrshgsh-source/MyWhitelist/main/Test.lua"
-
-local Key = _G.Key
-
-local HttpService = game:GetService("HttpService")
+--================================
+-- SERVICES
+--================================
 local Players = game:GetService("Players")
-local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
-local LocalPlayer = Players.LocalPlayer
-local HWID = RbxAnalyticsService:GetClientId()
+local HttpService = game:GetService("HttpService")
+local lp = Players.LocalPlayer
 
-local function Kick(msg)
-    LocalPlayer:Kick(msg or "[Swift HUB]\nInvalid Key")
-end
-
-if not Key then
-    Kick("[Swift HUB]\nPlease insert key")
-end
-
--- โหลด DB
-local success, DB = pcall(function()
-    return HttpService:JSONDecode(game:HttpGet(GIST_RAW))
-end)
-if not success or type(DB) ~= "table" then
-    Kick("[Swift HUB]\nCannot load database")
-end
-
-local data = DB[Key]
-if not data or type(data) ~= "table" then
-    Kick("[Swift HUB]\nInvalid Key or bad format")
-end
-
--- เช็ควันหมดอายุ
-if data.expired and tonumber(data.expired) ~= 0 then
-    if os.time() > tonumber(data.expired) then
-        Kick("[Swift HUB]\nKey expired")
-    end
-end
-
--- ============ AUTO HWID BIND ============
-if not data.hwid or data.hwid == "" then
-    DB[Key].hwid = HWID
-
-    local body = HttpService:JSONEncode({
-        files = {
-            ["whitelist.json"] = {
-                content = HttpService:JSONEncode(DB)
-            }
+--================================
+-- GET SERVER TIME (GitHub)
+--================================
+local function getServerTime()
+    local res = request({
+        Url = "https://api.github.com",
+        Method = "GET",
+        Headers = {
+            ["User-Agent"] = "Time-Check"
         }
     })
 
-    local ok = pcall(function()
-        game:HttpRequest({
-            Url = GIST_API,
-            Method = "PATCH",
-            Headers = {
-                ["Authorization"] = "token " .. TOKEN,
-                ["Content-Type"] = "application/json"
-            },
-            Body = body
-        })
-    end)
+    local date = res.Headers["Date"] or res.Headers["date"]
+    -- example: Wed, 15 Jan 2026 15:30:00 GMT
+    local d, m, y, h, mi, s = date:match("%a+, (%d+) (%a+) (%d+) (%d+):(%d+):(%d+)")
 
-    if not ok then
-        Kick("[Swift HUB]\nHWID bind failed")
+    local months = {
+        Jan=1, Feb=2, Mar=3, Apr=4, May=5, Jun=6,
+        Jul=7, Aug=8, Sep=9, Oct=10, Nov=11, Dec=12
+    }
+
+    return os.time({
+        year = tonumber(y),
+        month = months[m],
+        day = tonumber(d),
+        hour = tonumber(h),
+        min = tonumber(mi),
+        sec = tonumber(s)
+    })
+end
+
+local NOW = getServerTime()
+
+--================================
+-- CHECK KEY
+--================================
+if not _G.Key then
+    lp:Kick("No Key Provided")
+    return
+end
+local USER_KEY = tostring(_G.Key)
+
+--================================
+-- HWID
+--================================
+local HWID = lp.UserId .. "-" .. lp.AccountAge
+
+--================================
+-- LOAD GIST
+--================================
+local res = request({
+    Url = GIST_API,
+    Method = "GET",
+    Headers = {
+        ["Authorization"] = "token " .. GITHUB_TOKEN,
+        ["User-Agent"] = "Roblox-Whitelist"
+    }
+})
+
+local gist = HttpService:JSONDecode(res.Body)
+local keys = HttpService:JSONDecode(gist.files[FILE_NAME].content)
+
+local info = keys[USER_KEY]
+if not info then
+    lp:Kick("Invalid Key")
+    return
+end
+
+--================================
+-- PERMANENT KEY
+--================================
+if info.expire == "permanent" then
+    if info.used == false then
+        info.used = true
+        info.hwid = HWID
+    elseif info.hwid ~= HWID then
+        lp:Kick("HWID mismatch")
+        return
     end
 else
-    if tostring(data.hwid) ~= tostring(HWID) then
-        Kick("[Swift HUB]\nInvalid HWID")
+    --================================
+    -- TIME LIMITED KEY
+    --================================
+    if info.used == false then
+        info.used = true
+        info.hwid = HWID
+        info.start = NOW
+    end
+
+    local expireTime = info.start + (info.duration * 86400)
+    if NOW >= expireTime then
+        lp:Kick("Key Expired")
+        return
+    end
+
+    if info.hwid ~= HWID then
+        lp:Kick("HWID mismatch")
+        return
     end
 end
 
--- ผ่านไวลิส → โหลดสคริปต์จริงจาก GitHub
-loadstring(game:HttpGet(MAIN_SCRIPT))()
+--================================
+-- SAVE UPDATE
+--================================
+request({
+    Url = GIST_API,
+    Method = "PATCH",
+    Headers = {
+        ["Authorization"] = "token " .. GITHUB_TOKEN,
+        ["Content-Type"] = "application/json",
+        ["User-Agent"] = "Roblox-Whitelist"
+    },
+    Body = HttpService:JSONEncode({
+        files = {
+            [FILE_NAME] = {
+                content = HttpService:JSONEncode(keys)
+            }
+        }
+    })
+})
+
+--================================
+-- PASSED
+--================================
+print("✅ Whitelist Passed")
+print("🕒 Server Time:", NOW)
+print("🆔 HWID:", HWID)
+
+-- ใส่ Script หลักคุณต่อจากนี้
+print("คีย์ถูก")
