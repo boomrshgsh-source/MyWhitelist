@@ -14,85 +14,110 @@ local LP = Players.LocalPlayer
 -- ===============================
 -- COLORS
 -- ===============================
-local NEON_BLUE   = Color3.fromHex("#00E5FF")
-local NEON_YELLOW = Color3.fromHex("#FFF700")
-local DARK_BG1    = Color3.fromHex("#0B1220")
-local DARK_BG2    = Color3.fromHex("#020409")
-local WHITE       = Color3.fromHex("#FFFFFF")
+local BLUE_MAIN   = Color3.fromHex("#1E6CFF")
+local BLUE_SOFT   = Color3.fromHex("#6FB1FF")
+local BLUE_LIGHT  = Color3.fromHex("#CFE2FF")
+
+local WHITE_PURE  = Color3.fromHex("#FFFFFF")
+local WHITE_SOFT  = Color3.fromHex("#F4F7FF")
+
+local TEXT_DARK   = Color3.fromHex("#1A2A4A") -- ตัวหนังสือเข้ม อ่านชัด
 
 -- ===============================
 -- GRADIENTS
 -- ===============================
-local NEON_GRADIENT = WindUI:Gradient({
-    ["0"]   = { Color = NEON_BLUE,   Transparency = 0 },
-    ["100"] = { Color = NEON_YELLOW, Transparency = 0 },
+
+-- ปุ่ม / Toggle / Slider (น้ำเงิน → ขาว)
+local BLUE_WHITE_GRADIENT = WindUI:Gradient({
+    ["0"]   = { Color = BLUE_MAIN, Transparency = 0 },
+    ["60"]  = { Color = BLUE_SOFT, Transparency = 0 },
+    ["100"] = { Color = WHITE_PURE, Transparency = 0 },
 }, { Rotation = 45 })
 
+-- 🌊 พื้นหลังหลัก (น้ำเงิน + ขาว)
 local BACKGROUND_GRADIENT = WindUI:Gradient({
-    ["0"]   = { Color = NEON_BLUE,   Transparency = 0.2 },
-    ["100"] = { Color = NEON_YELLOW, Transparency = 0.2 },
-}, { Rotation = 45 })
+    ["0"]   = { Color = BLUE_LIGHT, Transparency = 0 },
+    ["50"]  = { Color = WHITE_PURE, Transparency = 0 },
+    ["100"] = { Color = BLUE_SOFT, Transparency = 0 },
+}, { Rotation = 90 })
 
-local DARK_TAB_GRADIENT = WindUI:Gradient({
-    ["0"]   = { Color = DARK_BG1, Transparency = 0 },
-    ["100"] = { Color = DARK_BG2, Transparency = 0 },
+-- Tab / Element (ขาวสะอาด)
+local WHITE_GRADIENT = WindUI:Gradient({
+    ["0"]   = { Color = WHITE_PURE, Transparency = 0 },
+    ["100"] = { Color = WHITE_SOFT, Transparency = 0 },
 }, { Rotation = 90 })
 
 -- ===============================
 -- THEME
 -- ===============================
 WindUI:AddTheme({
-    Name = "Senixa Theme",
+    Name = "BlueWhite",
 
-    Accent = NEON_GRADIENT,
+    Accent = BLUE_WHITE_GRADIENT,
+
     Background = BACKGROUND_GRADIENT,
-    BackgroundTransparency = 0.3,
+    BackgroundTransparency = 0,
 
-    Outline = NEON_YELLOW,
-    Text = WHITE,
-    Placeholder = Color3.fromHex("#B6F7FF"),
-    Icon = WHITE,
-    Hover = NEON_GRADIENT,
+    Outline = BLUE_MAIN,
+    Text = TEXT_DARK,
+    Placeholder = Color3.fromHex("#5E7EC8"),
+    Icon = BLUE_MAIN,
+    Hover = BLUE_WHITE_GRADIENT,
 
+    -- WINDOW
     WindowBackground = BACKGROUND_GRADIENT,
-    WindowShadow = Color3.fromHex("#000000"),
 
-    WindowTopbarButtonIcon = WHITE,
-    WindowTopbarTitle = WHITE,
-    WindowTopbarAuthor = WHITE,
-    WindowTopbarIcon = WHITE,
+    -- TOPBAR
+    WindowTopbarTitle = TEXT_DARK,
+    WindowTopbarAuthor = BLUE_MAIN,
+    WindowTopbarIcon = BLUE_MAIN,
+    WindowTopbarButtonIcon = BLUE_MAIN,
 
-    TabBackground = DARK_TAB_GRADIENT,
-    TabTitle = WHITE,
-    TabIcon = WHITE,
+    -- TAB
+    TabBackground = WHITE_GRADIENT,
+    TabTitle = TEXT_DARK,
+    TabIcon = BLUE_MAIN,
 
-    ElementBackground = DARK_TAB_GRADIENT,
-    ElementTitle = WHITE,
-    ElementDesc = Color3.fromHex("#C9F6FF"),
-    ElementIcon = Color3.fromHex("#C9F6FF"),
+    -- ELEMENT
+    ElementBackground = WHITE_GRADIENT,
+    ElementTitle = TEXT_DARK,
+    ElementDesc = Color3.fromHex("#4A66B0"),
+    ElementIcon = BLUE_MAIN,
 
-    Button = NEON_GRADIENT,
-    Toggle = NEON_GRADIENT,
-    ToggleBar = WHITE,
-    Checkbox = NEON_GRADIENT,
-    CheckboxIcon = WHITE,
-    Slider = NEON_GRADIENT,
-    SliderThumb = WHITE,
+    -- CONTROLS
+    Button = BLUE_WHITE_GRADIENT,
+    Toggle = BLUE_WHITE_GRADIENT,
+    ToggleBar = BLUE_MAIN,
+    Checkbox = BLUE_WHITE_GRADIENT,
+    CheckboxIcon = WHITE_PURE,
+    Slider = BLUE_WHITE_GRADIENT,
+    SliderThumb = WHITE_PURE,
+
+    -- POPUP / DIALOG
+    PopupBackground = WHITE_GRADIENT,
+    PopupTitle = TEXT_DARK,
+    PopupContent = TEXT_DARK,
+    PopupIcon = BLUE_MAIN,
+
+    DialogBackground = WHITE_GRADIENT,
+    DialogTitle = TEXT_DARK,
+    DialogContent = TEXT_DARK,
+    DialogIcon = BLUE_MAIN,
 })
 
-WindUI:SetTheme("NeonDarkReadable")
+WindUI:SetTheme("BlueWhite")
 
 
 local Window = WindUI:CreateWindow({
     Title = "Senixa HUB [ Test ]",
     Icon = "rbxassetid://126601065035910",
-    Theme = "Senixa Theme",
+    Theme = "BlueWhite",
     Transparent = true,
     Resizable = true,
-    Size = UDim2.fromOffset(850, 400),   -- ขนาดเริ่มต้น (ใหญ่ขึ้น)
-    MinSize = Vector2.new(480, 480),     -- เล็กสุด
-    MaxSize = Vector2.new(1000, 500),    -- ใหญ่สุด
-    SideBarWidth = 180,                  -- Sidebarกว้างขึ้น
+    Size = UDim2.fromOffset(850, 400),   
+    MinSize = Vector2.new(480, 480),   
+    MaxSize = Vector2.new(1000, 500),   
+    SideBarWidth = 190,             
 
     User = {
         Enabled = true,
